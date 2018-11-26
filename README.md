@@ -1,1 +1,4 @@
 # pigun
+
+Lightgun project ftw
+
