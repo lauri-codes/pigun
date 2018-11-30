@@ -14,13 +14,14 @@ Lightgun project ftw
  
  Python implmentation seems slow, which can becaused by the use of the camera still image port. This does some heavy denoising and it is naturally slow.
  - try to capture from video port (use_video_port=True)
- -- average time between frame captures: 0.052s (avg over 100 caps)
- -- + array reshape: 0.057s 
- -- + binarization: 0.055s (?!)
- -- + connected components: 0.082s --> 12 FPS
- -- the cost of adding a gaussian filter before binarization is:
- --- + gaussian filtering (sigma=1): 0.11s
- --- + gaussian filtering (sigma=10): 0.33s
+ 
+ average time between frame captures: 0.052s (avg over 100 caps)
+ + array reshape: 0.057s 
+ + binarization: 0.055s (?!)
+ + connected components: 0.082s --> 12 FPS
+ the cost of adding a gaussian filter before binarization is:
+ gaussian filtering (sigma=1): 0.11s
+ gaussian filtering (sigma=10): 0.33s
 
  
  
