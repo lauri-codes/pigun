@@ -24,7 +24,7 @@ Lightgun project ftw
  gaussian filtering (sigma=1): 0.11s
  gaussian filtering (sigma=10): 0.33s
 
- 
+ seems not fast enough :()
  
  If not fast enough, we might need a custom C implementation using libMMAL, possibly having connected components done on the GPU and even directly attached to the camera output?!
  
