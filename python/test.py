@@ -43,6 +43,7 @@ for i in range(100):
     #times[i] = end-start
     # save snapshot
     numpy.save("snapshot.npy",luma)
+    print("done")
 
 
 end = time.time()
