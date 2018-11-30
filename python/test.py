@@ -6,6 +6,8 @@ from picamera import PiCamera
 import numpy
 import scipy
 from scipy.ndimage import gaussian_filter
+from scipy import ndimage
+
 from PIL import Image
 import time
 
@@ -15,29 +17,39 @@ camera = PiCamera()
 #sleep(1)
 #camera.color_effects = (128, 128)
 
-camera.resolution = (640, 480)
+camera.resolution = (320, 240)
 camera.framerate = 60
 
-output = numpy.zeros((480 * 640 * 3,), dtype=numpy.uint8)
+output = numpy.zeros((320 * 240 * 3,), dtype=numpy.uint8)
 luma = None
 
 sleep(1)
 print("starting...")
+times = numpy.zeros((200))
 
-while True:
-    
-    start = time.time()
+start = time.time()
+
+for i in range(100):
     
     camera.capture(output, 'yuv', use_video_port=True)
-    luma = numpy.reshape(output[0 : 640*480], (480,640))
+    luma = numpy.reshape(output[0 : 320 * 240], (240,320))
     # do more processing?
-    luma = gaussian_filter(luma, 10)
+    #luma = gaussian_filter(luma, 1)
+    mask = numpy.where(luma>0.75, 1, 0)
     
-    end = time.time()
-    print(end-start)
+    label_im, nb_labels = ndimage.label(mask)
+    
+    #print(end-start)
+    #times[i] = end-start
     # save snapshot
-    numpy.save("snapshot.npy",luma)
-    
+    #numpy.save("snapshot.npy",luma)
+
+
+end = time.time()
+print((end-start)/100.0)
+
+#print(numpy.mean(times))
+
 #img = Image.open(stream).convert('L')
 #mat = numpy.asarray(img)#.astype(numpy.float32)
 
