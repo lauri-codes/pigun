@@ -8,6 +8,9 @@ Lightgun project ftw
  - Now the camera should be available in OpenCV under device number 0
  - Compile C++ code with: g++ main.cpp -o main `pkg-config --cflags --libs opencv`
  
+
+timing result: ~25 FPS (avg over 300 frames) without any frame processing
+
  
  
  ## Roadmap
