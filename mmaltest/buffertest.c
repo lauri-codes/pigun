@@ -5,6 +5,20 @@
  * Created on May 22, 2013, 1:52 PM
  */
 
+/* GENERAL IDEA OF THIS CODE
+ * 
+ * the camera acquires... as fast as possible i guess!
+ * camera.video output is configured with half resolution of the camera acquisition, at 90 fps
+ * camera.video output is NOT connected to anything, but buffered into a pool
+ * camera.video -> buffer (video_buffer_callback)
+ * camera 
+ * video_buffer_callback copies the Y channel into another buffer
+ * 
+ * camera video output uses MMAL_ENCODING_I420
+ * 
+ * 
+ * */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>
@@ -48,20 +62,28 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
     MMAL_POOL_T *pool = (MMAL_POOL_T *) port->userdata;
 
     loop++;
+    
+    // fetches a free buffer from the pool of the preview.input port
     preview_new_buffer = mmal_queue_get(preview_input_port_pool->queue);
 
     if (preview_new_buffer) {
         //printf("preview_new_buffer->length = %d \n", preview_new_buffer->length);
         //memcpy(preview_new_buffer->data, buffer->data, buffer->length);
-        memcpy(preview_new_buffer->data, buffer->data, 1280*720); // copy only Y 
+        //memcpy(preview_new_buffer->data, buffer->data, 1280*720); // copy only Y 
+        memcpy(preview_new_buffer->data, buffer->data, 640*360); // copy only Y 
+        
         int i;
-        for (i=921600; i < 921600+230400; i++) {
+        /*
+        for (i=230400; i < 230400+57600; i++) {
             preview_new_buffer->data[i] = 0x00;
         }
-        for (i=921600+230400; i < 1382400; i++) {
+        for (i=230400+57600; i < 345600; i++) {
             preview_new_buffer->data[i] = 0b10101010;
-        }
+        }*/
         preview_new_buffer->length = buffer->length;
+        
+        // i guess this is where the magic happens...
+        // the newbuffer is sent to the preview.input port
         if (mmal_port_send_buffer(preview_input_port, preview_new_buffer) != MMAL_SUCCESS) {
             printf("ERROR: Unable to send buffer \n");
         }
@@ -74,10 +96,13 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
         printf("loop = %d, Framerate = %d fps, buffer->length = %d \n", loop, loop / (d + 1), buffer->length);
     }
 
-
+	// we are done with this buffer, we can release it!
     mmal_buffer_header_release(buffer);
 
     // and send one back to the port (if still open)
+    // I really dont get why this has to happen?!
+    // but if we take it out, the whole thing stops working!
+    // perhaps the port needs empty buffers to work with...
     if (port->is_enabled) {
         MMAL_STATUS_T status;
 
@@ -89,9 +114,11 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
         if (!new_buffer || status != MMAL_SUCCESS)
             printf("Unable to return a buffer to the video port\n");
     }
+    
 }
 
 int main(int argc, char** argv) {
+	
     MMAL_COMPONENT_T *camera = 0;
     MMAL_COMPONENT_T *preview = 0;
     MMAL_ES_FORMAT_T *format;
@@ -104,7 +131,7 @@ int main(int argc, char** argv) {
 
     printf("Running...\n");
 
-
+	// i guess this starts the driver?
     bcm_host_init();
 
     status = mmal_component_create(MMAL_COMPONENT_DEFAULT_CAMERA, &camera);
@@ -134,6 +161,7 @@ int main(int argc, char** argv) {
         mmal_port_parameter_set(camera->control, &cam_config.hdr);
     }
 
+	/* commented by me!
     // Setup camera preview port format 
     format = camera_preview_port->format;
 
@@ -155,21 +183,20 @@ int main(int argc, char** argv) {
         printf("Error: camera viewfinder format couldn't be set\n");
         return -1;
     }
-
+	*/
+	
     // Setup camera video port format
-    //mmal_format_copy(camera_video_port->format, camera_preview_port->format);
-
     format = camera_video_port->format;
 
     format->encoding = MMAL_ENCODING_I420;
     format->encoding_variant = MMAL_ENCODING_I420;
 
-    format->es->video.width = 1280;
-    format->es->video.height = 720;
+    format->es->video.width = 640;
+    format->es->video.height = 360;
     format->es->video.crop.x = 0;
     format->es->video.crop.y = 0;
-    format->es->video.crop.width = 1280;
-    format->es->video.crop.height = 720;
+    format->es->video.crop.width = 640;
+    format->es->video.crop.height = 360;
     format->es->video.frame_rate.num = 90;
     format->es->video.frame_rate.den = 1;
 
@@ -186,25 +213,30 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-    // crate pool form camera video port
+    // crate pool form camera.video output port
     camera_video_port_pool = (MMAL_POOL_T *)mmal_port_pool_create(camera_video_port, camera_video_port->buffer_num, camera_video_port->buffer_size);
     camera_video_port->userdata = (struct MMAL_PORT_USERDATA_T *) camera_video_port_pool;
-
+	
+	// the port is enabled with the given callback function
+	// the callback is called when a complete frame is ready at the camera.video output port
     status = mmal_port_enable(camera_video_port, video_buffer_callback);
     if (status != MMAL_SUCCESS) {
         printf("Error: unable to enable camera video port (%u)\n", status);
         return -1;
     }
 
-    status = mmal_component_enable(camera);
+	// not sure if this is needed - seems to work without as well
+    //status = mmal_component_enable(camera);
 
 
+	// create a renderer component to show the video on screen
     status = mmal_component_create(MMAL_COMPONENT_DEFAULT_VIDEO_RENDERER, &preview);
     if (status != MMAL_SUCCESS) {
         printf("Error: unable to create preview (%u)\n", status);
         return -1;
     }
 
+	// setup the preview input port
     preview_input_port = preview->input[0];
     {
         MMAL_DISPLAYREGION_T param;
@@ -221,7 +253,8 @@ int main(int argc, char** argv) {
         }
     }
     mmal_format_copy(preview_input_port->format, camera_video_port->format);
-
+	
+	// setup the format of preview.input port -> same as camera.video output!
     format = preview_input_port->format;
 
     format->encoding = MMAL_ENCODING_I420;
@@ -237,22 +270,26 @@ int main(int argc, char** argv) {
     format->es->video.frame_rate.den = 1;
 
     preview_input_port->buffer_size = camera_video_port->buffer_size_recommended;
-    preview_input_port->buffer_num = 4;
+    preview_input_port->buffer_num = 4; // with a larger number of buffer
 
     printf(" preview buffer_size = %d\n", preview_input_port->buffer_size);
     printf(" preview buffer_num = %d\n", preview_input_port->buffer_num);
     
     status = mmal_port_format_commit(preview_input_port);
 
+	// create a buffer pool for the preview.input port
     preview_input_port_pool = (MMAL_POOL_T *)mmal_port_pool_create(preview_input_port, preview_input_port->buffer_num, preview_input_port->buffer_size);
 
     preview_input_port->userdata = (struct MMAL_PORT_USERDATA_T *) preview_input_port_pool;
+    // the input port is enabled, using the dull callback (it just releases the buffer)
     status = mmal_port_enable(preview_input_port, preview_buffer_callback);
     if (status != MMAL_SUCCESS) {
         printf("Error: unable to enable preview input port (%u)\n", status);
         return -1;
     }
 
+	// camera.video is not connected directly to preview.input!!!!
+	// the callback on camera.video is physically copying the output buffer into the buffer of the input port
     /*
     status = mmal_connection_create(&camera_preview_connection, camera_preview_port, preview_input_port, MMAL_CONNECTION_FLAG_TUNNELLING | MMAL_CONNECTION_FLAG_ALLOCATION_ON_INPUT);
     if (status != MMAL_SUCCESS) {
@@ -265,6 +302,8 @@ int main(int argc, char** argv) {
         return -1;
     }
      */
+     
+     // this sends the buffers to the camera.video output port so it can start filling them frame data
     if (1) {
         // Send all the buffers to the encoder output port
         int num = mmal_queue_length(camera_video_port_pool->queue);
