@@ -33,11 +33,12 @@ int main(int argc, char** argv) {
 
         // If the frame is empty, break immediately
         if (frame.empty()) {
+            std::cout << "failed!" << std::endl;
             break;
         }
 
         // Display the resulting frame
-        imshow( "Frame", frame );
+        //imshow( "Frame", frame );
 
         // Press  ESC on keyboard to exit
         /*char c=(char)waitKey(1);  // Waits for a key press for 1 millisecond. 0 means wait infinitely...
