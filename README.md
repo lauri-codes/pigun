@@ -10,8 +10,19 @@ Lightgun project ftw
  
 timing result (removed imshow!): ~59 FPS (avg over 300 frames) without any frame processing @ 640x480
 timing result (removed imshow!): ~20 FPS (avg over 300 frames) without any frame processing @ 1280x720
- 
- 
+
+
+## MMAL test
+
+timing capture at 1280x720@90fps --> 320x180 --> opencv CCL --> 5fps
+timing capture at 1280x720@90fps --> 320x180 --> run 1 loop  on all pixels with threshold conditioncheck --> 65fps
+timing capture at 1280x720@90fps --> 320x180 --> run 2 loops on all pixels with threshold conditioncheck --> 50fps
+
+
+
+
+
+
  ## Roadmap
  
  Python implmentation seems slow, which can becaused by the use of the camera still image port. This does some heavy denoising and it is naturally slow.

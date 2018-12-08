@@ -35,7 +35,7 @@
 
 using namespace cv;
 
-Mat frame;
+Mat frame, image;
 Ptr<SimpleBlobDetector> detector;
 std::vector<KeyPoint> keypoints;
 
@@ -82,11 +82,11 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
 		if(buffer->data[i] > 100)
 			tester += 1;
 	}
-    for(int i=0; i<PIGUN_NPX; i++) {
+    /*for(int i=0; i<PIGUN_NPX; i++) {
 		if(buffer->data[i] > 100)
 			tester += 1;
-	}
-    memset(buffer->data, tester, PIGUN_NPX);
+	}*/
+    //memset(buffer->data, tester, PIGUN_NPX);
     
     // fetches a free buffer from the pool of the preview.input port
     preview_new_buffer = mmal_queue_get(preview_input_port_pool->queue);
@@ -95,8 +95,8 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
         
         
          
-        //memcpy(preview_new_buffer->data, buffer->data, PIGUN_NPX); // copy only Y 
-        memcpy(preview_new_buffer->data, frame.data, PIGUN_NPX); // copy only Y 
+        memcpy(preview_new_buffer->data, buffer->data, PIGUN_NPX); // copy only Y 
+        //memcpy(preview_new_buffer->data, frame.data, PIGUN_NPX); // copy only Y 
         memset(&preview_new_buffer->data[PIGUN_NPX], 0, PIGUN_NPX/4);
         memset(&preview_new_buffer->data[PIGUN_NPX+PIGUN_NPX/4], 0b10101010, PIGUN_NPX/4);
 		preview_new_buffer->length = buffer->length;
@@ -118,7 +118,7 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
 
     if (loop % 10 == 0) {
         //fprintf(stderr, "loop = %d \n", loop);
-        printf("loop = %d, Framerate = %d fps, buffer->length = %d \n", loop, loop / (d + 1), buffer->length);
+        printf("loop = %d, Framerate = %d fps, buffer->length = %d tester=%d\n", loop, loop / (d + 1), buffer->length, tester);
     }
 
 	// we are done with this buffer, we can release it!
@@ -289,12 +289,12 @@ int main(int argc, char** argv) {
     format->encoding = MMAL_ENCODING_I420;
     format->encoding_variant = MMAL_ENCODING_I420;
 
-    format->es->video.width = 640;
-    format->es->video.height = 360;
+    format->es->video.width = PIGUN_RES_X;
+    format->es->video.height = PIGUN_RES_Y;
     format->es->video.crop.x = 0;
     format->es->video.crop.y = 0;
-    format->es->video.crop.width = 640;
-    format->es->video.crop.height = 360;
+    format->es->video.crop.width = PIGUN_RES_X;
+    format->es->video.crop.height = PIGUN_RES_Y;
     format->es->video.frame_rate.num = 90;
     format->es->video.frame_rate.den = 1;
 

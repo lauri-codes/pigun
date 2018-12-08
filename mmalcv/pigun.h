@@ -39,14 +39,14 @@
 #define MMAL_CAMERA_CAPTURE_PORT 2
 
 // camera acquisiton settings
-#define PIGUN_CAM_X 1270
+#define PIGUN_CAM_X 1280
 #define PIGUN_CAM_Y 720
 #define PIGUN_FPS 90
 // camera output settings
-#define PIGUN_RES_X 640
-#define PIGUN_RES_Y 360
+#define PIGUN_RES_X 320
+#define PIGUN_RES_Y 180
 // total number of pixels in the buffer
-#define PIGUN_NPX 230400
+#define PIGUN_NPX 57600 // 230400
 
 extern MMAL_PORT_T *port_prv_in1;
 
