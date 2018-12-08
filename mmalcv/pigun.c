@@ -73,7 +73,20 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
     
     
     frame = Mat(PIGUN_RES_Y, PIGUN_RES_X, CV_8UC1, buffer->data);
-    detector->detect(frame, keypoints);
+    //detector->detect(frame, keypoints);
+    
+    int i;
+    unsigned int tester = 0;
+    // test a 3 loop over pixels pass
+    for(int i=0; i<PIGUN_NPX; i++) {
+		if(buffer->data[i] > 100)
+			tester += 1;
+	}
+    for(int i=0; i<PIGUN_NPX; i++) {
+		if(buffer->data[i] > 100)
+			tester += 1;
+	}
+    memset(buffer->data, tester, PIGUN_NPX);
     
     // fetches a free buffer from the pool of the preview.input port
     preview_new_buffer = mmal_queue_get(preview_input_port_pool->queue);
