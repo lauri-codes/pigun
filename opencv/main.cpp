@@ -16,8 +16,8 @@ int main(int argc, char** argv) {
     std::cout << "Camera opened" << std::endl;
 
 
-    cap.set(CAP_PROP_FRAME_WIDTH, 640);
-    cap.set(CAP_PROP_FRAME_HEIGHT, 480);
+    cap.set(CAP_PROP_FRAME_WIDTH, 1280);
+    cap.set(CAP_PROP_FRAME_HEIGHT, 720);
     cap.set(CAP_PROP_FPS, 90);
 
 	struct timeval tv, tv2;
