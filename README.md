@@ -9,13 +9,16 @@ Lightgun project ftw
  - Compile C++ code with: g++ main.cpp -o main `pkg-config --cflags --libs opencv`
  
 timing result (removed imshow!): ~59 FPS (avg over 300 frames) without any frame processing @ 640x480
+
 timing result (removed imshow!): ~20 FPS (avg over 300 frames) without any frame processing @ 1280x720
 
 
 ## MMAL test
 
 timing capture at 1280x720@90fps --> 320x180 --> opencv CCL --> 5fps
+
 timing capture at 1280x720@90fps --> 320x180 --> run 1 loop  on all pixels with threshold conditioncheck --> 65fps
+
 timing capture at 1280x720@90fps --> 320x180 --> run 2 loops on all pixels with threshold conditioncheck --> 50fps
 
 
