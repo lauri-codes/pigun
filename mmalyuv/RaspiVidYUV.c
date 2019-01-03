@@ -565,142 +565,142 @@ static int parse_cmdline(int argc, const char **argv, RASPIVIDYUV_STATE *state)
  *
  * @param state Pointer to state
  */
-static FILE *open_filename(RASPIVIDYUV_STATE *pState, char *filename)
-{
-   FILE *new_handle = NULL;
+/*static FILE *open_filename(RASPIVIDYUV_STATE *pState, char *filename)*/
+/*{*/
+   /*FILE *new_handle = NULL;*/
 
-   if (filename)
-   {
-      bool bNetwork = false;
-      int sfd = -1, socktype;
+   /*if (filename)*/
+   /*{*/
+      /*bool bNetwork = false;*/
+      /*int sfd = -1, socktype;*/
 
-      if(!strncmp("tcp://", filename, 6))
-      {
-         bNetwork = true;
-         socktype = SOCK_STREAM;
-      }
-      else if(!strncmp("udp://", filename, 6))
-      {
-         if (pState->netListen)
-         {
-            fprintf(stderr, "No support for listening in UDP mode\n");
-            exit(131);
-         }
-         bNetwork = true;
-         socktype = SOCK_DGRAM;
-      }
+      /*if(!strncmp("tcp://", filename, 6))*/
+      /*{*/
+         /*bNetwork = true;*/
+         /*socktype = SOCK_STREAM;*/
+      /*}*/
+      /*else if(!strncmp("udp://", filename, 6))*/
+      /*{*/
+         /*if (pState->netListen)*/
+         /*{*/
+            /*fprintf(stderr, "No support for listening in UDP mode\n");*/
+            /*exit(131);*/
+         /*}*/
+         /*bNetwork = true;*/
+         /*socktype = SOCK_DGRAM;*/
+      /*}*/
 
-      if(bNetwork)
-      {
-         unsigned short port;
-         filename += 6;
-         char *colon;
-         if(NULL == (colon = strchr(filename, ':')))
-         {
-            fprintf(stderr, "%s is not a valid IPv4:port, use something like tcp://1.2.3.4:1234 or udp://1.2.3.4:1234\n",
-                    filename);
-            exit(132);
-         }
-         if(1 != sscanf(colon + 1, "%hu", &port))
-         {
-            fprintf(stderr,
-                    "Port parse failed. %s is not a valid network file name, use something like tcp://1.2.3.4:1234 or udp://1.2.3.4:1234\n",
-                    filename);
-            exit(133);
-         }
-         char chTmp = *colon;
-         *colon = 0;
+      /*if(bNetwork)*/
+      /*{*/
+         /*unsigned short port;*/
+         /*filename += 6;*/
+         /*char *colon;*/
+         /*if(NULL == (colon = strchr(filename, ':')))*/
+         /*{*/
+            /*fprintf(stderr, "%s is not a valid IPv4:port, use something like tcp://1.2.3.4:1234 or udp://1.2.3.4:1234\n",*/
+                    /*filename);*/
+            /*exit(132);*/
+         /*}*/
+         /*if(1 != sscanf(colon + 1, "%hu", &port))*/
+         /*{*/
+            /*fprintf(stderr,*/
+                    /*"Port parse failed. %s is not a valid network file name, use something like tcp://1.2.3.4:1234 or udp://1.2.3.4:1234\n",*/
+                    /*filename);*/
+            /*exit(133);*/
+         /*}*/
+         /*char chTmp = *colon;*/
+         /**colon = 0;*/
 
-         struct sockaddr_in saddr= {};
-         saddr.sin_family = AF_INET;
-         saddr.sin_port = htons(port);
-         if(0 == inet_aton(filename, &saddr.sin_addr))
-         {
-            fprintf(stderr, "inet_aton failed. %s is not a valid IPv4 address\n",
-                    filename);
-            exit(134);
-         }
-         *colon = chTmp;
+         /*struct sockaddr_in saddr= {};*/
+         /*saddr.sin_family = AF_INET;*/
+         /*saddr.sin_port = htons(port);*/
+         /*if(0 == inet_aton(filename, &saddr.sin_addr))*/
+         /*{*/
+            /*fprintf(stderr, "inet_aton failed. %s is not a valid IPv4 address\n",*/
+                    /*filename);*/
+            /*exit(134);*/
+         /*}*/
+         /**colon = chTmp;*/
 
-         if (pState->netListen)
-         {
-            int sockListen = socket(AF_INET, SOCK_STREAM, 0);
-            if (sockListen >= 0)
-            {
-               int iTmp = 1;
-               setsockopt(sockListen, SOL_SOCKET, SO_REUSEADDR, &iTmp, sizeof(int));//no error handling, just go on
-               if (bind(sockListen, (struct sockaddr *) &saddr, sizeof(saddr)) >= 0)
-               {
-                  while ((-1 == (iTmp = listen(sockListen, 0))) && (EINTR == errno))
-                     ;
-                  if (-1 != iTmp)
-                  {
-                     fprintf(stderr, "Waiting for a TCP connection on %s:%"SCNu16"...",
-                             inet_ntoa(saddr.sin_addr), ntohs(saddr.sin_port));
-                     struct sockaddr_in cli_addr;
-                     socklen_t clilen = sizeof(cli_addr);
-                     while ((-1 == (sfd = accept(sockListen, (struct sockaddr *) &cli_addr, &clilen))) && (EINTR == errno))
-                        ;
-                     if (sfd >= 0)
-                        fprintf(stderr, "Client connected from %s:%"SCNu16"\n", inet_ntoa(cli_addr.sin_addr), ntohs(cli_addr.sin_port));
-                     else
-                        fprintf(stderr, "Error on accept: %s\n", strerror(errno));
-                  }
-                  else//if (-1 != iTmp)
-                  {
-                     fprintf(stderr, "Error trying to listen on a socket: %s\n", strerror(errno));
-                  }
-               }
-               else//if (bind(sockListen, (struct sockaddr *) &saddr, sizeof(saddr)) >= 0)
-               {
-                  fprintf(stderr, "Error on binding socket: %s\n", strerror(errno));
-               }
-            }
-            else//if (sockListen >= 0)
-            {
-               fprintf(stderr, "Error creating socket: %s\n", strerror(errno));
-            }
+         /*if (pState->netListen)*/
+         /*{*/
+            /*int sockListen = socket(AF_INET, SOCK_STREAM, 0);*/
+            /*if (sockListen >= 0)*/
+            /*{*/
+               /*int iTmp = 1;*/
+               /*setsockopt(sockListen, SOL_SOCKET, SO_REUSEADDR, &iTmp, sizeof(int));//no error handling, just go on*/
+               /*if (bind(sockListen, (struct sockaddr *) &saddr, sizeof(saddr)) >= 0)*/
+               /*{*/
+                  /*while ((-1 == (iTmp = listen(sockListen, 0))) && (EINTR == errno))*/
+                     /*;*/
+                  /*if (-1 != iTmp)*/
+                  /*{*/
+                     /*fprintf(stderr, "Waiting for a TCP connection on %s:%"SCNu16"...",*/
+                             /*inet_ntoa(saddr.sin_addr), ntohs(saddr.sin_port));*/
+                     /*struct sockaddr_in cli_addr;*/
+                     /*socklen_t clilen = sizeof(cli_addr);*/
+                     /*while ((-1 == (sfd = accept(sockListen, (struct sockaddr *) &cli_addr, &clilen))) && (EINTR == errno))*/
+                        /*;*/
+                     /*if (sfd >= 0)*/
+                        /*fprintf(stderr, "Client connected from %s:%"SCNu16"\n", inet_ntoa(cli_addr.sin_addr), ntohs(cli_addr.sin_port));*/
+                     /*else*/
+                        /*fprintf(stderr, "Error on accept: %s\n", strerror(errno));*/
+                  /*}*/
+                  /*else//if (-1 != iTmp)*/
+                  /*{*/
+                     /*fprintf(stderr, "Error trying to listen on a socket: %s\n", strerror(errno));*/
+                  /*}*/
+               /*}*/
+               /*else//if (bind(sockListen, (struct sockaddr *) &saddr, sizeof(saddr)) >= 0)*/
+               /*{*/
+                  /*fprintf(stderr, "Error on binding socket: %s\n", strerror(errno));*/
+               /*}*/
+            /*}*/
+            /*else//if (sockListen >= 0)*/
+            /*{*/
+               /*fprintf(stderr, "Error creating socket: %s\n", strerror(errno));*/
+            /*}*/
 
-            if (sockListen >= 0)//regardless success or error
-               close(sockListen);//do not listen on a given port anymore
-         }
-         else//if (pState->netListen)
-         {
-            if(0 <= (sfd = socket(AF_INET, socktype, 0)))
-            {
-               fprintf(stderr, "Connecting to %s:%hu...", inet_ntoa(saddr.sin_addr), port);
+            /*if (sockListen >= 0)//regardless success or error*/
+               /*close(sockListen);//do not listen on a given port anymore*/
+         /*}*/
+         /*else//if (pState->netListen)*/
+         /*{*/
+            /*if(0 <= (sfd = socket(AF_INET, socktype, 0)))*/
+            /*{*/
+               /*fprintf(stderr, "Connecting to %s:%hu...", inet_ntoa(saddr.sin_addr), port);*/
 
-               int iTmp = 1;
-               while ((-1 == (iTmp = connect(sfd, (struct sockaddr *) &saddr, sizeof(struct sockaddr_in)))) && (EINTR == errno))
-                  ;
-               if (iTmp < 0)
-                  fprintf(stderr, "error: %s\n", strerror(errno));
-               else
-                  fprintf(stderr, "connected, sending video...\n");
-            }
-            else
-               fprintf(stderr, "Error creating socket: %s\n", strerror(errno));
-         }
+               /*int iTmp = 1;*/
+               /*while ((-1 == (iTmp = connect(sfd, (struct sockaddr *) &saddr, sizeof(struct sockaddr_in)))) && (EINTR == errno))*/
+                  /*;*/
+               /*if (iTmp < 0)*/
+                  /*fprintf(stderr, "error: %s\n", strerror(errno));*/
+               /*else*/
+                  /*fprintf(stderr, "connected, sending video...\n");*/
+            /*}*/
+            /*else*/
+               /*fprintf(stderr, "Error creating socket: %s\n", strerror(errno));*/
+         /*}*/
 
-         if (sfd >= 0)
-            new_handle = fdopen(sfd, "w");
-      }
-      else
-      {
-         new_handle = fopen(filename, "wb");
-      }
-   }
+         /*if (sfd >= 0)*/
+            /*new_handle = fdopen(sfd, "w");*/
+      /*}*/
+      /*else*/
+      /*{*/
+         /*new_handle = fopen(filename, "wb");*/
+      /*}*/
+   /*}*/
 
-   if (pState->common_settings.verbose)
-   {
-      if (new_handle)
-         fprintf(stderr, "Opening output file \"%s\"\n", filename);
-      else
-         fprintf(stderr, "Failed to open new file \"%s\"\n", filename);
-   }
+   /*if (pState->common_settings.verbose)*/
+   /*{*/
+      /*if (new_handle)*/
+         /*fprintf(stderr, "Opening output file \"%s\"\n", filename);*/
+      /*else*/
+         /*fprintf(stderr, "Failed to open new file \"%s\"\n", filename);*/
+   /*}*/
 
-   return new_handle;
-}
+   /*return new_handle;*/
+/*}*/
 
 /**
  *  buffer header callback function for camera
@@ -734,23 +734,20 @@ static void camera_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buff
       if (bytes_to_write)
       {
          mmal_buffer_header_mem_lock(buffer);
-
-
+         pData->frame += 1;
 
          /* Insert custom code for handling the luma channel data here.
           */
-         fprintf(stdout, "Capturing");
+         /*fprintf(stdout, "Capturing");*/
 
-         // Loop over the pixels
-         int width = port->format->es->video.width;
-         int height = port->format->es->video.height;
-         for (int i=0; i<width; ++i) {
-            for (int j=0; j<height; ++j) {
-                int luma = buffer->data[];
-            }
-         }
-
-
+         /*// Loop over the pixels*/
+         /*int width = port->format->es->video.width;*/
+         /*int height = port->format->es->video.height;*/
+         /*for (int i=0; i<width; ++i) {*/
+            /*for (int j=0; j<height; ++j) {*/
+                /*int luma = buffer->data[];*/
+            /*}*/
+         /*}*/
 
 
          /*bytes_written = fwrite(buffer->data, 1, bytes_to_write, pData->file_handle);*/
@@ -1439,6 +1436,8 @@ int main(int argc, const char **argv)
                 }
             }
 
+            struct timeval tStart, tEnd, tElapsed;
+            gettimeofday(&tStart, NULL);
             while (running)
             {
                 // Change state
@@ -1460,6 +1459,17 @@ int main(int argc, const char **argv)
 
                 running = wait_for_next_change(&state);
             }
+            gettimeofday(&tEnd, NULL);
+            timersub(&tEnd, &tStart, &tElapsed);
+            long int msElapsed = 1000*(long int)tElapsed.tv_sec + (long int)tElapsed.tv_usec/1000;
+            double sElapsed = (double)msElapsed/1000.0;
+            PORT_USERDATA *pData = (PORT_USERDATA *)camera_video_port->userdata;
+            int nFrames = pData->frame;
+
+            double trueFps = (double)nFrames/sElapsed;
+            printf("Frames: %d\n", nFrames);
+            printf("Elapsed: %f\n", sElapsed);
+            printf("FPS: %.1f", trueFps);
 
             if (state.common_settings.verbose)
                 fprintf(stderr, "Finished capture\n");
