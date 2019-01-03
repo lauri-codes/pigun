@@ -118,10 +118,10 @@ typedef struct RASPIVIDYUV_STATE_S RASPIVIDYUV_STATE;
  */
 typedef struct
 {
-   FILE *file_handle;                   /// File handle to write buffer data to.
+   /*FILE *file_handle;                   /// File handle to write buffer data to.*/
    RASPIVIDYUV_STATE *pstate;           /// pointer to our state in case required in callback
    int abort;                           /// Set to 1 in callback if an error occurs to attempt to abort the capture
-   FILE *pts_file_handle;               /// File timestamps
+   /*FILE *pts_file_handle;               /// File timestamps*/
    int frame;
    int64_t starttime;
    int64_t lasttime;
@@ -500,22 +500,22 @@ static int parse_cmdline(int argc, const char **argv, RASPIVIDYUV_STATE *state)
          state->useRGB = 1;
          break;
 
-      case CommandSavePTS:  // output filename
-      {
-         state->save_pts = 1;
-         int len = strlen(argv[i + 1]);
-         if (len)
-         {
-            state->pts_filename = malloc(len + 1);
-            vcos_assert(state->pts_filename);
-            if (state->pts_filename)
-               strncpy(state->pts_filename, argv[i + 1], len+1);
-            i++;
-         }
-         else
-            valid = 0;
-         break;
-      }
+      /*case CommandSavePTS:  // output filename*/
+      /*{*/
+         /*state->save_pts = 1;*/
+         /*int len = strlen(argv[i + 1]);*/
+         /*if (len)*/
+         /*{*/
+            /*state->pts_filename = malloc(len + 1);*/
+            /*vcos_assert(state->pts_filename);*/
+            /*if (state->pts_filename)*/
+               /*strncpy(state->pts_filename, argv[i + 1], len+1);*/
+            /*i++;*/
+         /*}*/
+         /*else*/
+            /*valid = 0;*/
+         /*break;*/
+      /*}*/
 
       case CommandNetListen:
       {
@@ -729,38 +729,57 @@ static void camera_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buff
       if (pstate->onlyLuma)
          bytes_to_write = vcos_min(buffer->length, port->format->es->video.width * port->format->es->video.height);
 
-      vcos_assert(pData->file_handle);
+      /*vcos_assert(pData->file_handle);*/
 
       if (bytes_to_write)
       {
          mmal_buffer_header_mem_lock(buffer);
-         bytes_written = fwrite(buffer->data, 1, bytes_to_write, pData->file_handle);
-         mmal_buffer_header_mem_unlock(buffer);
 
-         if (bytes_written != bytes_to_write)
-         {
-            vcos_log_error("Failed to write buffer data (%d from %d)- aborting", bytes_written, bytes_to_write);
-            pData->abort = 1;
-         }
-         if (pData->pts_file_handle)
-         {
-            // Every buffer should be a complete frame, so no need to worry about
-            // fragments or duplicated timestamps. We're also in RESET_STC mode, so
-            // the time on frame 0 should always be 0 anyway, but simply copy the
-            // code from raspivid.
-            // MMAL_TIME_UNKNOWN should never happen, but it'll corrupt the timestamps
-            // file if saved.
-            if(buffer->pts != MMAL_TIME_UNKNOWN)
-            {
-               int64_t pts;
-               if(pstate->frame==0)
-                  pstate->starttime=buffer->pts;
-               pData->lasttime=buffer->pts;
-               pts = buffer->pts - pData->starttime;
-               fprintf(pData->pts_file_handle,"%lld.%03lld\n", pts/1000, pts%1000);
-               pData->frame++;
+
+
+         /* Insert custom code for handling the luma channel data here.
+          */
+         fprintf(stdout, "Capturing");
+
+         // Loop over the pixels
+         int width = port->format->es->video.width;
+         int height = port->format->es->video.height;
+         for (int i=0; i<width; ++i) {
+            for (int j=0; j<height; ++j) {
+                int luma = buffer->data[];
             }
          }
+
+
+
+
+         /*bytes_written = fwrite(buffer->data, 1, bytes_to_write, pData->file_handle);*/
+         mmal_buffer_header_mem_unlock(buffer);
+
+         /*if (bytes_written != bytes_to_write)*/
+         /*{*/
+            /*vcos_log_error("Failed to write buffer data (%d from %d)- aborting", bytes_written, bytes_to_write);*/
+            /*pData->abort = 1;*/
+         /*}*/
+         /*if (pData->pts_file_handle)*/
+         /*{*/
+            /*// Every buffer should be a complete frame, so no need to worry about*/
+            /*// fragments or duplicated timestamps. We're also in RESET_STC mode, so*/
+            /*// the time on frame 0 should always be 0 anyway, but simply copy the*/
+            /*// code from raspivid.*/
+            /*// MMAL_TIME_UNKNOWN should never happen, but it'll corrupt the timestamps*/
+            /*// file if saved.*/
+            /*if(buffer->pts != MMAL_TIME_UNKNOWN)*/
+            /*{*/
+               /*int64_t pts;*/
+               /*if(pstate->frame==0)*/
+                  /*pstate->starttime=buffer->pts;*/
+               /*pData->lasttime=buffer->pts;*/
+               /*pts = buffer->pts - pData->starttime;*/
+               /*fprintf(pData->pts_file_handle,"%lld.%03lld\n", pts/1000, pts%1000);*/
+               /*pData->frame++;*/
+            /*}*/
+         /*}*/
       }
 
       // See if the second count has changed and we need to update any annotation
@@ -988,6 +1007,7 @@ static MMAL_STATUS_T create_camera_component(RASPIVIDYUV_STATE *state)
    format->es->video.crop.y = 0;
    format->es->video.crop.width = state->common_settings.width;
    format->es->video.crop.height = state->common_settings.height;
+   printf("Framerate set at: %d\n", state->framerate);
    format->es->video.frame_rate.num = state->framerate;
    format->es->video.frame_rate.den = VIDEO_FRAME_RATE_DEN;
 
@@ -1319,48 +1339,48 @@ int main(int argc, const char **argv)
 
       if (status == MMAL_SUCCESS)
       {
-         state.callback_data.file_handle = NULL;
+         /*state.callback_data.file_handle = NULL;*/
 
-         if (state.common_settings.filename)
-         {
-            if (state.common_settings.filename[0] == '-')
-            {
-               state.callback_data.file_handle = stdout;
-            }
-            else
-            {
-               state.callback_data.file_handle = open_filename(&state, state.common_settings.filename);
-            }
+         /*if (state.common_settings.filename)*/
+         /*{*/
+            /*if (state.common_settings.filename[0] == '-')*/
+            /*{*/
+               /*state.callback_data.file_handle = stdout;*/
+            /*}*/
+            /*else*/
+            /*{*/
+               /*state.callback_data.file_handle = open_filename(&state, state.common_settings.filename);*/
+            /*}*/
 
-            if (!state.callback_data.file_handle)
-            {
-               // Notify user, carry on but discarding output buffers
-               vcos_log_error("%s: Error opening output file: %s\nNo output file will be generated\n", __func__, state.common_settings.filename);
-            }
-         }
+            /*if (!state.callback_data.file_handle)*/
+            /*{*/
+               /*// Notify user, carry on but discarding output buffers*/
+               /*vcos_log_error("%s: Error opening output file: %s\nNo output file will be generated\n", __func__, state.common_settings.filename);*/
+            /*}*/
+         /*}*/
 
-         state.callback_data.pts_file_handle = NULL;
+         /*state.callback_data.pts_file_handle = NULL;*/
 
-         if (state.pts_filename)
-         {
-            if (state.pts_filename[0] == '-')
-            {
-               state.callback_data.pts_file_handle = stdout;
-            }
-            else
-            {
-               state.callback_data.pts_file_handle = open_filename(&state, state.pts_filename);
-               if (state.callback_data.pts_file_handle) /* save header for mkvmerge */
-                  fprintf(state.callback_data.pts_file_handle, "# timecode format v2\n");
-            }
+         /*if (state.pts_filename)*/
+         /*{*/
+            /*if (state.pts_filename[0] == '-')*/
+            /*{*/
+               /*state.callback_data.pts_file_handle = stdout;*/
+            /*}*/
+            /*else*/
+            /*{*/
+               /*state.callback_data.pts_file_handle = open_filename(&state, state.pts_filename);*/
+               /*if (state.callback_data.pts_file_handle) [> save header for mkvmerge <]*/
+                  /*fprintf(state.callback_data.pts_file_handle, "# timecode format v2\n");*/
+            /*}*/
 
-            if (!state.callback_data.pts_file_handle)
-            {
-               // Notify user, carry on but discarding encoded output buffers
-               fprintf(stderr, "Error opening output file: %s\nNo output file will be generated\n",state.pts_filename);
-               state.save_pts=0;
-            }
-         }
+            /*if (!state.callback_data.pts_file_handle)*/
+            /*{*/
+               /*// Notify user, carry on but discarding encoded output buffers*/
+               /*fprintf(stderr, "Error opening output file: %s\nNo output file will be generated\n",state.pts_filename);*/
+               /*state.save_pts=0;*/
+            /*}*/
+         /*}*/
 
          // Set up our userdata - this is passed though to the callback where we need the information.
          state.callback_data.pstate = &state;
@@ -1387,74 +1407,74 @@ int main(int argc, const char **argv)
          {
             // Only save stuff if we have a filename and it opened
             // Note we use the file handle copy in the callback, as the call back MIGHT change the file handle
-            if (state.callback_data.file_handle)
+            /*if (state.callback_data.file_handle)*/
+            /*{*/
+            int running = 1;
+
+            if (state.common_settings.verbose)
+                fprintf(stderr, "Enabling camera video port\n");
+
+            // Enable the camera video port and tell it its callback function
+            status = mmal_port_enable(camera_video_port, camera_buffer_callback);
+
+            if (status != MMAL_SUCCESS)
             {
-               int running = 1;
-
-               if (state.common_settings.verbose)
-                  fprintf(stderr, "Enabling camera video port\n");
-
-               // Enable the camera video port and tell it its callback function
-               status = mmal_port_enable(camera_video_port, camera_buffer_callback);
-
-               if (status != MMAL_SUCCESS)
-               {
-                  vcos_log_error("Failed to setup camera output");
-                  goto error;
-               }
-
-               // Send all the buffers to the camera video port
-               {
-                  int num = mmal_queue_length(state.camera_pool->queue);
-                  int q;
-                  for (q=0; q<num; q++)
-                  {
-                     MMAL_BUFFER_HEADER_T *buffer = mmal_queue_get(state.camera_pool->queue);
-
-                     if (!buffer)
-                        vcos_log_error("Unable to get a required buffer %d from pool queue", q);
-
-                     if (mmal_port_send_buffer(camera_video_port, buffer)!= MMAL_SUCCESS)
-                        vcos_log_error("Unable to send a buffer to camera video port (%d)", q);
-                  }
-               }
-
-               while (running)
-               {
-                  // Change state
-
-                  state.bCapturing = !state.bCapturing;
-
-                  if (mmal_port_parameter_set_boolean(camera_video_port, MMAL_PARAMETER_CAPTURE, state.bCapturing) != MMAL_SUCCESS)
-                  {
-                     // How to handle?
-                  }
-
-                  if (state.common_settings.verbose)
-                  {
-                     if (state.bCapturing)
-                        fprintf(stderr, "Starting video capture\n");
-                     else
-                        fprintf(stderr, "Pausing video capture\n");
-                  }
-
-                  running = wait_for_next_change(&state);
-               }
-
-               if (state.common_settings.verbose)
-                  fprintf(stderr, "Finished capture\n");
+                vcos_log_error("Failed to setup camera output");
+                goto error;
             }
-            else
+
+            // Send all the buffers to the camera video port
             {
-               if (state.timeout)
-                  vcos_sleep(state.timeout);
-               else
-               {
-                  // timeout = 0 so run forever
-                  while(1)
-                     vcos_sleep(ABORT_INTERVAL);
-               }
+                int num = mmal_queue_length(state.camera_pool->queue);
+                int q;
+                for (q=0; q<num; q++)
+                {
+                    MMAL_BUFFER_HEADER_T *buffer = mmal_queue_get(state.camera_pool->queue);
+
+                    if (!buffer)
+                    vcos_log_error("Unable to get a required buffer %d from pool queue", q);
+
+                    if (mmal_port_send_buffer(camera_video_port, buffer)!= MMAL_SUCCESS)
+                    vcos_log_error("Unable to send a buffer to camera video port (%d)", q);
+                }
             }
+
+            while (running)
+            {
+                // Change state
+
+                state.bCapturing = !state.bCapturing;
+
+                if (mmal_port_parameter_set_boolean(camera_video_port, MMAL_PARAMETER_CAPTURE, state.bCapturing) != MMAL_SUCCESS)
+                {
+                    // How to handle?
+                }
+
+                if (state.common_settings.verbose)
+                {
+                    if (state.bCapturing)
+                    fprintf(stderr, "Starting video capture\n");
+                    else
+                    fprintf(stderr, "Pausing video capture\n");
+                }
+
+                running = wait_for_next_change(&state);
+            }
+
+            if (state.common_settings.verbose)
+                fprintf(stderr, "Finished capture\n");
+            /*}*/
+            /*else*/
+            /*{*/
+               /*if (state.timeout)*/
+                  /*vcos_sleep(state.timeout);*/
+               /*else*/
+               /*{*/
+                  /*// timeout = 0 so run forever*/
+                  /*while(1)*/
+                     /*vcos_sleep(ABORT_INTERVAL);*/
+               /*}*/
+            /*}*/
          }
       }
       else
@@ -1484,10 +1504,10 @@ error:
 
       // Can now close our file. Note disabling ports may flush buffers which causes
       // problems if we have already closed the file!
-      if (state.callback_data.file_handle && state.callback_data.file_handle != stdout)
-         fclose(state.callback_data.file_handle);
-      if (state.callback_data.pts_file_handle && state.callback_data.pts_file_handle != stdout)
-         fclose(state.callback_data.pts_file_handle);
+      /*if (state.callback_data.file_handle && state.callback_data.file_handle != stdout)*/
+         /*fclose(state.callback_data.file_handle);*/
+      /*if (state.callback_data.pts_file_handle && state.callback_data.pts_file_handle != stdout)*/
+         /*fclose(state.callback_data.pts_file_handle);*/
 
       raspipreview_destroy(&state.preview_parameters);
       destroy_camera_component(&state);
