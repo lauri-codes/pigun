@@ -7,4 +7,5 @@ st = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d_%H:%M:%S')
 
 camera = PiCamera()
 camera.resolution = (1280, 720)
+time.sleep(1)
 camera.capture("../testimgs/resolutions/test{}.png".format(st))
