@@ -184,7 +184,7 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
 	if (loop % 10 == 0) {
 		//fprintf(stderr, "loop = %d \n", loop);
 		printf("loop = %d, Framerate = %d fps, buffer->length = %d \n", 
-            loop, loop / (d), buffer->length);
+            loop, loop / (d+1), buffer->length);
 	}
 
 	// we are done with this buffer, we can release it!
