@@ -101,10 +101,10 @@ static int pigun_detect(unsigned char *data) {
 	// *** clear the peak data *** ***************************************
 	
 	memset(peaks, 0, sizeof(Peak) * 2);
-	peaks[0].row = -1;
-	peaks[1].row = -1;
+	peaks[0].row = 0;
+	peaks[1].row = 0;
 	peaks[0].col = 0;
-	peaks[1].col = PIGUN_RES_X;
+	peaks[1].col = PIGUN_RES_X-1;
 	
 	// *******************************************************************
 
@@ -218,7 +218,9 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
 
 	if (preview_new_buffer) {
 
-		memcpy(preview_new_buffer->data, buffer->data, PIGUN_NPX); // copy only Y 
+		memcpy(preview_new_buffer->data, buffer->data, PIGUN_NPX); // copy only Y
+        preview_new_buffer->data[PIGUN_RES_X*floor(peaks[0].row)+floor(peaks[0].col)] = 0;
+        preview_new_buffer->data[PIGUN_RES_X*floor(peaks[1].row)+floor(peaks[1].col)] = 0;
 		memset(&preview_new_buffer->data[PIGUN_NPX], 0, PIGUN_NPX/4); // reset U/V channels
 		memset(&preview_new_buffer->data[PIGUN_NPX+PIGUN_NPX/4], 0b10101010, PIGUN_NPX/4);
 		preview_new_buffer->length = buffer->length;
@@ -235,7 +237,8 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
 
 	if (loop % 10 == 0) {
 		//fprintf(stderr, "loop = %d \n", loop);
-		printf("loop = %d, Framerate = %d fps, buffer->length = %d \n", loop, loop / (d + 1), buffer->length);
+		printf("loop = %d, Framerate = %d fps, buffer->length = %d \n", 
+            loop, loop / (d + 1), buffer->length);
 	}
 
 	// we are done with this buffer, we can release it!
