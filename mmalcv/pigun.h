@@ -45,10 +45,29 @@
 // camera output settings
 #define PIGUN_RES_X 320
 #define PIGUN_RES_Y 180
-// total number of pixels in the buffer
+// total number of pixels in the buffer - has to be the product of the previous 2
 #define PIGUN_NPX 57600 // 230400
 
 extern MMAL_PORT_T *port_prv_in1;
+
+
+// maximum distance in pixels for peak matching
+#define MAXPEAKDIST 5
+
+typedef struct Peak Peak;
+struct Peak {
+
+   // 0->struct is unused, 1->peak found
+   unsigned short found;
+   
+   float row, col;
+   float total;
+   float tRow, tCol;
+
+};
+
+
+
 
 void pigun_camera_setup(MMAL_COMPONENT_T *cam, unsigned int resx, unsigned int resy);
 

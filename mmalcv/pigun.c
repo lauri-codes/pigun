@@ -31,15 +31,151 @@
 #include "interface/mmal/util/mmal_connection.h"
 
 #include "pigun.h"
-#include <opencv2/opencv.hpp>
+#include <math.h>
 
+/*
+#include <opencv2/opencv.hpp>
 using namespace cv;
 
 Mat frame, image;
 Ptr<SimpleBlobDetector> detector;
 std::vector<KeyPoint> keypoints;
+*/
+
+Peak lastPeaks[2];
+Peak peaks[2];
+
+/* ONE POSSIBLE WAY TO DO FAST DETECTION
+
+the idea is to sweep a row and find a pattern of points like /\ or /- along the line
+when found, record the peak max value, and column position
+the system might also to find a second peak further along the row,
+and it found, it will also be recorded in another data structure
+
+at this point the row scan ended and a new row is being processed
+if one peak was found in the previous line, we do not really know if it is the left ot right one!
+but its column position was recorded
+as more rows are processed, a peak at similar column may be found
+if this one
 
 
+// data structures for 2 blobs, one will naturally be left of the other!
+Blob peaks[2] = 0;
+
+
+
+// look at all rows of pixels
+for each row:
+
+    peakIdx = 0
+
+    for each col:
+
+
+        px <- img[row,col]
+
+        if px < threshold: continue
+
+        if px > prev:
+            incFound = 1
+
+        if px <= prev && incFound == 1:
+            // we have found a complete peak
+            
+
+
+
+            // was this peak higher than the one previously found at this location?
+            if
+            // record the max value
+            peakMax = prev
+
+            
+
+
+ */
+
+
+static int pigun_detect(unsigned char *data) {
+
+	// *** clear the peak data *** ***************************************
+	
+	memset(peaks, 0, sizeof(Peak) * 2);
+	peaks[0].row = -1;
+	peaks[1].row = -1;
+	peaks[0].col = 0;
+	peaks[1].col = PIGUN_RES_X;
+	
+	// *******************************************************************
+
+	unsigned char *img = data;
+	float px;
+	short status = 0;
+	float thr = 0.5f;
+	float linesumRow, linesumCol, total, thisCol;
+	float dists[2];
+	unsigned short pID;
+	
+	
+	for(int i=0; i<PIGUN_RES_Y; i++) { // loop over the rows
+		
+		// reset status when new pixel row starts
+		status = 0;
+
+		for(int j=0; j<PIGUN_RES_X; j++, img++) { // loop over the pixel columns
+
+			// wait for some space after a peack is ended
+			if(status < 0) {
+				status++;
+				continue;
+			}
+
+			px = (float)(*img)/255.0;
+			
+			// start recording the histogram
+			if(status == 0 && px > thr) {
+				status = 1;
+				linesumy = 0; linesumx = 0;
+			}
+			
+			if(status == 1) {
+				
+				if(px <= thr || j == PIGUN_RES_X-1) {
+					// stop recording...
+					status = -5;
+					total = linesumRow;
+					thisCol = linesumCol / total;
+					// ... TODO
+					// which peak is the closest in y to the one found now?
+					dists[0] = fabsf(peaks[0].col - thisCol);
+					dists[1] = fabsf(peaks[1].col - thisCol);
+					pID = (dists[0]<dists[1])? 0 : 1; // get the closest peak
+					peaks[pID].total += total;
+					peaks[pID].tRow  += linesumRow * i;
+					peaks[pID].tCol  += linesumCol;
+					peaks[pID].col    = thisCol;
+					peaks[pID].found  = 1;
+					
+				} else {
+					// record the histogram
+					linesumRow += px;
+					linesumCol += px * j;
+				}
+				
+			}
+			
+		} // end of loop over columns
+	} // end of loop over rows
+
+	peaks[0].row = peaks[0].tRow / peaks[0].total;
+	peaks[0].col = peaks[0].tCol / peaks[0].total;
+
+	peaks[1].row = peaks[1].tRow / peaks[1].total;
+	peaks[1].col = peaks[1].tCol / peaks[1].total;
+
+
+	return peaks[0].found + 2*peaks[1].found;
+}
 
 MMAL_POOL_T *camera_video_port_pool;
 MMAL_POOL_T *preview_input_port_pool;
@@ -53,93 +189,83 @@ static void preview_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buf
 
 static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffer) {
 	
+	// timing stuff
+	static int loop = 0;
+	static struct timespec t1;
+	struct timespec t2;
 	
-    static int loop = 0;
-    static struct timespec t1;
-    struct timespec t2;
-    //printf("INFO:video_buffer_callback\n");
-    if (loop == 0) {
-        clock_gettime(CLOCK_MONOTONIC, &t1);
-    }
-    clock_gettime(CLOCK_MONOTONIC, &t2);
+	if (loop == 0) {
+		clock_gettime(CLOCK_MONOTONIC, &t1);
+	}
+	clock_gettime(CLOCK_MONOTONIC, &t2);
 
-    int d = t2.tv_sec - t1.tv_sec;
+	int d = t2.tv_sec - t1.tv_sec;
 	loop++;
 
-    MMAL_BUFFER_HEADER_T *new_buffer;
-    MMAL_BUFFER_HEADER_T *preview_new_buffer;
-    MMAL_POOL_T *pool = (MMAL_POOL_T *) port->userdata;
+	
+	MMAL_BUFFER_HEADER_T *new_buffer;
+	MMAL_BUFFER_HEADER_T *preview_new_buffer;
+	MMAL_POOL_T *pool = (MMAL_POOL_T *) port->userdata;
+	
+	
+	//frame = Mat(PIGUN_RES_Y, PIGUN_RES_X, CV_8UC1, buffer->data);
+	//detector->detect(frame, keypoints);
+	
+	// this should find the peaks
+	int pfounds = pigun_detect(buffer->data);
+	
+	//memset(buffer->data, tester, PIGUN_NPX);
 
-    
-    
-    frame = Mat(PIGUN_RES_Y, PIGUN_RES_X, CV_8UC1, buffer->data);
-    //detector->detect(frame, keypoints);
-    
-    int i;
-    unsigned int tester = 0;
-    // test a 3 loop over pixels pass
-    for(int i=0; i<PIGUN_NPX; i++) {
-		if(buffer->data[i] > 100)
-			tester += 1;
-	}
-    /*for(int i=0; i<PIGUN_NPX; i++) {
-		if(buffer->data[i] > 100)
-			tester += 1;
-	}*/
-    //memset(buffer->data, tester, PIGUN_NPX);
-    
-    // fetches a free buffer from the pool of the preview.input port
-    preview_new_buffer = mmal_queue_get(preview_input_port_pool->queue);
+	// fetches a free buffer from the pool of the preview.input port
+	preview_new_buffer = mmal_queue_get(preview_input_port_pool->queue);
 
-    if (preview_new_buffer) {
-        
-        
-         
-        memcpy(preview_new_buffer->data, buffer->data, PIGUN_NPX); // copy only Y 
-        //memcpy(preview_new_buffer->data, frame.data, PIGUN_NPX); // copy only Y 
-        memset(&preview_new_buffer->data[PIGUN_NPX], 0, PIGUN_NPX/4);
-        memset(&preview_new_buffer->data[PIGUN_NPX+PIGUN_NPX/4], 0b10101010, PIGUN_NPX/4);
+	if (preview_new_buffer) {
+
+		memcpy(preview_new_buffer->data, buffer->data, PIGUN_NPX); // copy only Y 
+		//memcpy(preview_new_buffer->data, frame.data, PIGUN_NPX); // copy only Y 
+		memset(&preview_new_buffer->data[PIGUN_NPX], 0, PIGUN_NPX/4);
+		memset(&preview_new_buffer->data[PIGUN_NPX+PIGUN_NPX/4], 0b10101010, PIGUN_NPX/4);
 		preview_new_buffer->length = buffer->length;
-        
-        
-        
-        //Mat image;
-        //drawKeypoints(frame, keypoints, image, Scalar(0,0,255), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
-        //memcpy(preview_new_buffer->data, image.data, PIGUN_NPX); // copy only Y 
-        
-        // i guess this is where the magic happens...
-        // the newbuffer is sent to the preview.input port
-        if (mmal_port_send_buffer(preview_input_port, preview_new_buffer) != MMAL_SUCCESS) {
-            printf("ERROR: Unable to send buffer \n");
-        }
-    } else {
-        printf("ERROR: mmal_queue_get (%d)\n", preview_new_buffer);
-    }
 
-    if (loop % 10 == 0) {
-        //fprintf(stderr, "loop = %d \n", loop);
-        printf("loop = %d, Framerate = %d fps, buffer->length = %d tester=%d\n", loop, loop / (d + 1), buffer->length, tester);
-    }
+
+
+		//Mat image;
+		//drawKeypoints(frame, keypoints, image, Scalar(0,0,255), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
+		//memcpy(preview_new_buffer->data, image.data, PIGUN_NPX); // copy only Y 
+
+		// i guess this is where the magic happens...
+		// the newbuffer is sent to the preview.input port
+		if (mmal_port_send_buffer(preview_input_port, preview_new_buffer) != MMAL_SUCCESS) {
+		printf("ERROR: Unable to send buffer \n");
+		}
+	} else {
+		printf("ERROR: mmal_queue_get (%d)\n", preview_new_buffer);
+	}
+
+	if (loop % 10 == 0) {
+		//fprintf(stderr, "loop = %d \n", loop);
+		printf("loop = %d, Framerate = %d fps, buffer->length = %d tester=%d\n", loop, loop / (d + 1), buffer->length, tester);
+	}
 
 	// we are done with this buffer, we can release it!
-    mmal_buffer_header_release(buffer);
+	mmal_buffer_header_release(buffer);
 
-    // and send one back to the port (if still open)
-    // I really dont get why this has to happen?!
-    // but if we take it out, the whole thing stops working!
-    // perhaps the port needs empty buffers to work with...
-    if (port->is_enabled) {
-        MMAL_STATUS_T status;
+	// and send one back to the port (if still open)
+	// I really dont get why this has to happen?!
+	// but if we take it out, the whole thing stops working!
+	// perhaps the port needs empty buffers to work with...
+	if (port->is_enabled) {
+		
+		MMAL_STATUS_T status;
+		new_buffer = mmal_queue_get(pool->queue);
 
-        new_buffer = mmal_queue_get(pool->queue);
+		if (new_buffer)
+			status = mmal_port_send_buffer(port, new_buffer);
 
-        if (new_buffer)
-            status = mmal_port_send_buffer(port, new_buffer);
-
-        if (!new_buffer || status != MMAL_SUCCESS)
-            printf("Unable to return a buffer to the video port\n");
-    }
-    
+		if (!new_buffer || status != MMAL_SUCCESS)
+			printf("Unable to return a buffer to the video port\n");
+	}
+	
 }
 
 int main(int argc, char** argv) {
@@ -150,7 +276,7 @@ int main(int argc, char** argv) {
     MMAL_STATUS_T status;
     MMAL_PORT_T *camera_preview_port = NULL, *camera_video_port = NULL, *camera_still_port = NULL;
 
-	detector = SimpleBlobDetector::create();
+	//detector = SimpleBlobDetector::create();
 
     MMAL_CONNECTION_T *camera_preview_connection = 0;
 
