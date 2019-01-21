@@ -135,7 +135,7 @@ static int pigun_detect(unsigned char *data) {
 			// start recording the histogram
 			if(status == 0 && px > thr) {
 				status = 1;
-				linesumy = 0; linesumx = 0;
+				linesumCol = 0; linesumRow = 0;
 			}
 			
 			if(status == 1) {
@@ -208,9 +208,6 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
 	MMAL_POOL_T *pool = (MMAL_POOL_T *) port->userdata;
 	
 	
-	//frame = Mat(PIGUN_RES_Y, PIGUN_RES_X, CV_8UC1, buffer->data);
-	//detector->detect(frame, keypoints);
-	
 	// this should find the peaks
 	int pfounds = pigun_detect(buffer->data);
 	
@@ -222,17 +219,11 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
 	if (preview_new_buffer) {
 
 		memcpy(preview_new_buffer->data, buffer->data, PIGUN_NPX); // copy only Y 
-		//memcpy(preview_new_buffer->data, frame.data, PIGUN_NPX); // copy only Y 
-		memset(&preview_new_buffer->data[PIGUN_NPX], 0, PIGUN_NPX/4);
+		memset(&preview_new_buffer->data[PIGUN_NPX], 0, PIGUN_NPX/4); // reset U/V channels
 		memset(&preview_new_buffer->data[PIGUN_NPX+PIGUN_NPX/4], 0b10101010, PIGUN_NPX/4);
 		preview_new_buffer->length = buffer->length;
-
-
-
-		//Mat image;
-		//drawKeypoints(frame, keypoints, image, Scalar(0,0,255), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
-		//memcpy(preview_new_buffer->data, image.data, PIGUN_NPX); // copy only Y 
-
+		
+		
 		// i guess this is where the magic happens...
 		// the newbuffer is sent to the preview.input port
 		if (mmal_port_send_buffer(preview_input_port, preview_new_buffer) != MMAL_SUCCESS) {
@@ -244,7 +235,7 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
 
 	if (loop % 10 == 0) {
 		//fprintf(stderr, "loop = %d \n", loop);
-		printf("loop = %d, Framerate = %d fps, buffer->length = %d tester=%d\n", loop, loop / (d + 1), buffer->length, tester);
+		printf("loop = %d, Framerate = %d fps, buffer->length = %d \n", loop, loop / (d + 1), buffer->length);
 	}
 
 	// we are done with this buffer, we can release it!
