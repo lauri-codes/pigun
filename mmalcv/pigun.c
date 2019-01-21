@@ -198,7 +198,10 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
 		clock_gettime(CLOCK_MONOTONIC, &t1);
 	}
 	
-	
+    clock_gettime(CLOCK_MONOTONIC, &t2);
+    int d = t2.tv_sec - t1.tv_sec;
+    loop++;
+
 	MMAL_BUFFER_HEADER_T *new_buffer;
 	MMAL_BUFFER_HEADER_T *preview_new_buffer;
 	MMAL_POOL_T *pool = (MMAL_POOL_T *) port->userdata;
@@ -233,9 +236,7 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
 		printf("ERROR: mmal_queue_get (%d)\n", preview_new_buffer);
 	}
 
-    clock_gettime(CLOCK_MONOTONIC, &t2);
-    int d = t2.tv_sec - t1.tv_sec;
-    loop++;
+
 
 	if (loop % 10 == 0) {
 		//fprintf(stderr, "loop = %d \n", loop);
