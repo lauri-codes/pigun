@@ -33,67 +33,10 @@
 #include "pigun.h"
 #include <math.h>
 
-/*
-#include <opencv2/opencv.hpp>
-using namespace cv;
-
-Mat frame, image;
-Ptr<SimpleBlobDetector> detector;
-std::vector<KeyPoint> keypoints;
-*/
 
 Peak lastPeaks[2];
 Peak peaks[2];
 
-/* ONE POSSIBLE WAY TO DO FAST DETECTION
-
-the idea is to sweep a row and find a pattern of points like /\ or /- along the line
-when found, record the peak max value, and column position
-the system might also to find a second peak further along the row,
-and it found, it will also be recorded in another data structure
-
-at this point the row scan ended and a new row is being processed
-if one peak was found in the previous line, we do not really know if it is the left ot right one!
-but its column position was recorded
-as more rows are processed, a peak at similar column may be found
-if this one
-
-
-// data structures for 2 blobs, one will naturally be left of the other!
-Blob peaks[2] = 0;
-
-
-
-// look at all rows of pixels
-for each row:
-
-    peakIdx = 0
-
-    for each col:
-
-
-        px <- img[row,col]
-
-        if px < threshold: continue
-
-        if px > prev:
-            incFound = 1
-
-        if px <= prev && incFound == 1:
-            // we have found a complete peak
-            
-
-
-
-            // was this peak higher than the one previously found at this location?
-            if
-            // record the max value
-            peakMax = prev
-
-            
-
-
- */
 
 
 static int pigun_detect(unsigned char *data) {
@@ -218,8 +161,8 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
 	if (preview_new_buffer) {
 
 		memcpy(preview_new_buffer->data, buffer->data, PIGUN_NPX); // copy only Y
-        preview_new_buffer->data[PIGUN_RES_X*(int)(peaks[0].row)+(int)(peaks[0].col)] = 0;
-        preview_new_buffer->data[PIGUN_RES_X*(int)(peaks[1].row)+(int)(peaks[1].col)] = 0;
+        //preview_new_buffer->data[PIGUN_RES_X*(int)(peaks[0].row)+(int)(peaks[0].col)] = 0;
+        //preview_new_buffer->data[PIGUN_RES_X*(int)(peaks[1].row)+(int)(peaks[1].col)] = 0;
 
 		memset(&preview_new_buffer->data[PIGUN_NPX], 0, PIGUN_NPX/2); // reset U/V channels
 		//memset(&preview_new_buffer->data[PIGUN_NPX+PIGUN_NPX/4], 0b10101010, PIGUN_NPX/4);
