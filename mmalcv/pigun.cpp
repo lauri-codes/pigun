@@ -1,4 +1,4 @@
-/* 
+/*
  * File:   buffer_demo.c
  * Author: Tasanakorn
  *
@@ -6,17 +6,17 @@
  */
 
 /* GENERAL IDEA OF THIS CODE
- * 
+ *
  * the camera acquires... as fast as possible i guess!
  * camera.video output is configured with half resolution of the camera acquisition, at 90 fps
  * camera.video output is NOT connected to anything, but buffered into a pool
  * camera.video -> buffer (video_buffer_callback)
- * camera 
+ * camera
  * video_buffer_callback copies the Y channel into another buffer
- * 
+ *
  * camera video output uses MMAL_ENCODING_I420
- * 
- * 
+ *
+ *
  * */
 
 #include <stdio.h>
@@ -38,6 +38,7 @@
 #include <utility>
 #include <queue>
 #include <vector>
+#include <algorithm>
 #include <stdint.h>
 
 using namespace std;
@@ -53,19 +54,19 @@ std::vector<KeyPoint> keypoints;
 
 Peak lastPeaks[2];
 Peak peaks[2];
-
+vector<bool> CHECKED(PIGUN_RES_X*PIGUN_RES_Y, false);  // Boolean array for storingwhich pixel locations have been checked in the blob detection
 
 
 static int pigun_detect(unsigned char *data) {
 
 	// *** clear the peak data *** ***************************************
-	
+
 	memset(peaks, 0, sizeof(Peak) * 2);
 	peaks[0].row = 0;
 	peaks[1].row = 0;
 	peaks[0].col = 0;
 	peaks[1].col = PIGUN_RES_X-1;
-	
+
 	// *******************************************************************
 
 	unsigned char *img = data;
@@ -75,10 +76,10 @@ static int pigun_detect(unsigned char *data) {
 	float linesumRow, linesumCol, total, thisCol;
 	float dists[2];
 	unsigned short pID;
-	
-	
+
+
 	for(int i=0; i<PIGUN_RES_Y; i++) { // loop over the rows
-		
+
 		// reset status when new pixel row starts
 		status = 0;
 
@@ -91,15 +92,15 @@ static int pigun_detect(unsigned char *data) {
 			}
 
 			px = (float)(*img)/255.0;
-			
+
 			// start recording the histogram
 			if(status == 0 && px > thr) {
 				status = 1;
 				linesumCol = 0; linesumRow = 0;
 			}
-			
+
 			if(status == 1) {
-				
+
 				if(px <= thr || j == PIGUN_RES_X-1) {
 					// stop recording...
 					status = -5;
@@ -115,15 +116,15 @@ static int pigun_detect(unsigned char *data) {
 					peaks[pID].tCol  += linesumCol;
 					peaks[pID].col    = thisCol;
 					peaks[pID].found  = 1;
-					
+
 				} else {
 					// record the histogram
 					linesumRow += px;
 					linesumCol += px * j;
 				}
-				
+
 			}
-			
+
 		} // end of loop over columns
 	} // end of loop over rows
 
@@ -146,14 +147,14 @@ MMAL_PORT_T *preview_input_port = NULL;
  * working on the given data array. Returns a list of indices found to belong
  * to the blob surrounding the starting point.
  */
-vector<pair<int, int> > bfs(int idx, int* data, vector<bool> &checked, const unsigned int &width, const unsigned int &height, const float &threshold) {
+vector<pair<int, int> > bfs(int idx, int* data, const float &threshold) {
     vector<pair<int, int> > indices;
     queue<int> toSearch;
 
     // First add the starting index to queue and mark as checked
     toSearch.push(idx);
     indices.push_back(make_pair(idx, data[idx]));
-    checked[idx] = true;
+    CHECKED[idx] = true;
 
     // Do search until stack is emptied
     while(!toSearch.empty()) {
@@ -161,22 +162,22 @@ vector<pair<int, int> > bfs(int idx, int* data, vector<bool> &checked, const uns
 
         // Check top, bottom, left, right. Add to stack if above treshold
         vector<int> toCheck;
-        int top = current - width;
-        int bottom = current + width;
+        int top = current - PIGUN_RES_X;
+        int bottom = current + PIGUN_RES_X;
         int left = current - 1;
         int right = current + 1;
 
         // Only check neighbours that are inside the image and not checked yet
-        if (top >= 0 && !checked[top]) {
+        if (top >= 0 && !CHECKED[top]) {
             toCheck.push_back(top);
         }
-        if (bottom < width*height && !checked[bottom]) {
+        if (bottom < PIGUN_RES_X*PIGUN_RES_Y && !CHECKED[bottom]) {
             toCheck.push_back(bottom);
         }
-        if (left >= 0 && !((left) % width == 0) && !checked[left]) {
+        if (left >= 0 && !((left) % PIGUN_RES_X == 0) && !CHECKED[left]) {
             toCheck.push_back(left);
         }
-        if (right < width*height && !((right) % width == 0) && !checked[right]) {
+        if (right < PIGUN_RES_X*PIGUN_RES_Y && !((right) % PIGUN_RES_X == 0) && !CHECKED[right]) {
             toCheck.push_back(right);
         }
 
@@ -185,7 +186,7 @@ vector<pair<int, int> > bfs(int idx, int* data, vector<bool> &checked, const uns
             int iVal = data[i];
             if (iVal >= threshold) {
                 toSearch.push(i);
-                checked[i] = true;
+                CHECKED[i] = true;
                 indices.push_back(make_pair(i, iVal));
             }
         }
@@ -199,31 +200,29 @@ vector<pair<int, int> > bfs(int idx, int* data, vector<bool> &checked, const uns
 
 static int pigun_detect2(unsigned char *data) {
 
-    const unsigned int w = 1280;
-    const unsigned int h = 720;
-    const unsigned int nBlobs = 2;
 
     // These parameters have to be tuned to optimize the search
+    const unsigned int nBlobs = 2;        // How many blobs to search
     const unsigned int dx = 4;            // How many pixels are skipped in x direction
     const unsigned int dy = 4;            // How many pixels are skipped in y direction
     const unsigned int minBlobSize = 10;  // Have many pizels does a blob have to have to be considered valid
     const float threshold = 200;          // The minimum threshold for pixel intensity in a blob
 
-    const unsigned int nx = ceil(float(w)/float(dx));
-    const unsigned int ny = ceil(float(h)/float(dy));
+    const unsigned int nx = ceil(float(PIGUN_RES_X)/float(dx));
+    const unsigned int ny = ceil(float(PIGUN_RES_Y)/float(dy));
 
-    // Create a boolean array for marking pixels as checked.
-    vector<bool> checked(w*h, false);
+    // Reset the boolean array for marking pixels as checked.
+    std::fill(CHECKED.begin(), CHECKED.end(), false);
 
-    // Here the order actually matters: we loop in this order to get good cache
+    // Here the order actually matters: we loop in this order to get better cache
     // hit rate
     vector<vector<pair<int, int> > > blobs;
     for (int j=0; j < ny; ++j) {
         for (int i=0; i < nx; ++i) {
-            int idx = j*dy*w + i*dx;
+            int idx = j*dy*PIGUN_RES_X + i*dx;
             float value = data[idx];
             if (value >= threshold && !checked[idx]) {
-                vector<pair<int, int> > indices = bfs(idx, &data[0], checked, w, h, threshold);
+                vector<pair<int, int> > indices = bfs(idx, &data[0], checked, threshold);
                 int blobSize = indices.size();
                 if (blobSize >= minBlobSize) {
                     blobs.push_back(indices);
@@ -249,8 +248,8 @@ static int pigun_detect2(unsigned char *data) {
             int val = wCoord.second;
 
             // Transform flattened index to 2D coordinate
-            int x = idx % w;
-            int y = idx / w;
+            int x = idx % PIGUN_RES_X;
+            int y = idx / PIGUN_RES_X;
 
             // Add the weighted coordinate
             sumX += x*val;
@@ -260,7 +259,7 @@ static int pigun_detect2(unsigned char *data) {
         // Calculate intensity weighted mean coordinates of blobs
         float meanX = float(sumX)/sumVal;
         float meanY = float(sumY)/sumVal;
-        cout << "Blob in location: " << meanX << ", " << meanY << endl;
+        //cout << "Blob in location: " << meanX << ", " << meanY << endl;
 
         // Store in global peaks variable
         peaks[iBlob].row = meanY;
@@ -271,21 +270,21 @@ static int pigun_detect2(unsigned char *data) {
 
 static void preview_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffer) {
     //printf("INFO:preview_buffer_callback buffer->length = %d\n", buffer->length);
-    
+
     mmal_buffer_header_release(buffer);
 }
 
 static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffer) {
-	
+
 	// timing stuff
 	static int loop = 0;
 	static struct timespec t1;
 	struct timespec t2;
-	
+
 	if (loop == 0) {
 		clock_gettime(CLOCK_MONOTONIC, &t1);
 	}
-	
+
     clock_gettime(CLOCK_MONOTONIC, &t2);
     int d = t2.tv_sec - t1.tv_sec;
     loop++;
@@ -293,12 +292,12 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
 	MMAL_BUFFER_HEADER_T *new_buffer;
 	MMAL_BUFFER_HEADER_T *preview_new_buffer;
 	MMAL_POOL_T *pool = (MMAL_POOL_T *) port->userdata;
-	
-	
+
+
 	// this should find the peaks
 	//int pfounds = pigun_detect(buffer->data);  // Filippo
-        pigun_detect2(buffer->data);   		     // Lauri
-	
+    pigun_detect2(buffer->data);   		         // Lauri
+
 	//memset(buffer->data, tester, PIGUN_NPX);
 
 	// fetches a free buffer from the pool of the preview.input port
@@ -312,10 +311,10 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
 
 		memset(&preview_new_buffer->data[PIGUN_NPX], 0, PIGUN_NPX/2); // reset U/V channels
 		//memset(&preview_new_buffer->data[PIGUN_NPX+PIGUN_NPX/4], 0b10101010, PIGUN_NPX/4);
-		
+
         preview_new_buffer->length = buffer->length;
-		
-		
+
+
 		// i guess this is where the magic happens...
 		// the newbuffer is sent to the preview.input port
 		if (mmal_port_send_buffer(preview_input_port, preview_new_buffer) != MMAL_SUCCESS) {
@@ -329,7 +328,7 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
 
 	if (loop % 10 == 0) {
 		//fprintf(stderr, "loop = %d \n", loop);
-		printf("loop = %d, Framerate = %d fps, buffer->length = %d \n", 
+		printf("loop = %d, Framerate = %d fps, buffer->length = %d \n",
             loop, loop / (d+1), buffer->length);
 	}
 
@@ -341,7 +340,7 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
 	// but if we take it out, the whole thing stops working!
 	// perhaps the port needs empty buffers to work with...
 	if (port->is_enabled) {
-		
+
 		MMAL_STATUS_T status;
 		new_buffer = mmal_queue_get(pool->queue);
 
@@ -351,11 +350,11 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
 		if (!new_buffer || status != MMAL_SUCCESS)
 			printf("Unable to return a buffer to the video port\n");
 	}
-	
+
 }
 
 int main(int argc, char** argv) {
-	
+
     MMAL_COMPONENT_T *camera = 0;
     MMAL_COMPONENT_T *preview = 0;
     MMAL_ES_FORMAT_T *format;
@@ -402,7 +401,7 @@ int main(int argc, char** argv) {
 	// ...
 
 	/* commented by me!
-    // Setup camera preview port format 
+    // Setup camera preview port format
     format = camera_preview_port->format;
 
     format->encoding = MMAL_ENCODING_OPAQUE;
@@ -424,7 +423,7 @@ int main(int argc, char** argv) {
         return -1;
     }
 	*/
-	
+
     // Setup camera video port format **********************************
     format = camera_video_port->format;
 
@@ -445,7 +444,7 @@ int main(int argc, char** argv) {
     camera_video_port->buffer_num = 4;
 
     status = mmal_port_format_commit(camera_video_port);
-    
+
     printf(" camera video buffer_size = %d\n", camera_video_port->buffer_size);
     printf(" camera video buffer_num = %d\n", camera_video_port->buffer_num);
     if (status != MMAL_SUCCESS) {
@@ -457,7 +456,7 @@ int main(int argc, char** argv) {
     // crate pool form camera.video output port
     camera_video_port_pool = (MMAL_POOL_T *)mmal_port_pool_create(camera_video_port, camera_video_port->buffer_num, camera_video_port->buffer_size);
     camera_video_port->userdata = (struct MMAL_PORT_USERDATA_T *) camera_video_port_pool;
-	
+
 	// the port is enabled with the given callback function
 	// the callback is called when a complete frame is ready at the camera.video output port
     status = mmal_port_enable(camera_video_port, video_buffer_callback);
@@ -494,7 +493,7 @@ int main(int argc, char** argv) {
         }
     }
     mmal_format_copy(preview_input_port->format, camera_video_port->format);
-	
+
 	// setup the format of preview.input port -> same as camera.video output!
     format = preview_input_port->format;
 
@@ -515,7 +514,7 @@ int main(int argc, char** argv) {
 
     printf(" preview buffer_size = %d\n", preview_input_port->buffer_size);
     printf(" preview buffer_num = %d\n", preview_input_port->buffer_num);
-    
+
     status = mmal_port_format_commit(preview_input_port);
 
 	// create a buffer pool for the preview.input port
@@ -543,7 +542,7 @@ int main(int argc, char** argv) {
         return -1;
     }
      */
-     
+
      // this sends the buffers to the camera.video output port so it can start filling them frame data
     if (1) {
         // Send all the buffers to the encoder output port
