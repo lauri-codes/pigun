@@ -197,7 +197,7 @@ vector<pair<int, int> > bfs(int idx, int* data, const float &threshold) {
 
     return indices;
 }
-
+/*
 static int pigun_detect2(unsigned char *data) {
 
 
@@ -267,7 +267,7 @@ static int pigun_detect2(unsigned char *data) {
         ++iBlob;
     }
 }
-
+*/
 static void preview_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffer) {
     //printf("INFO:preview_buffer_callback buffer->length = %d\n", buffer->length);
 
@@ -296,7 +296,7 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
 
 	// this should find the peaks
 	//int pfounds = pigun_detect(buffer->data);  // Filippo
-    pigun_detect2(buffer->data);   		         // Lauri
+    pigun_detect(buffer->data);   		         // Lauri
 
 	//memset(buffer->data, tester, PIGUN_NPX);
 
