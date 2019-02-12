@@ -15,4 +15,3 @@ all:
 #	gcc -c $(INC) utils.c main.c
 #	gcc $(LIB) *.o $(LNK)
 	g++ $(LIB) $(INC) pigun.c pigun-helpers.c $(LNK)
-	

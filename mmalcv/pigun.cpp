@@ -38,6 +38,7 @@
 #include <utility>
 #include <queue>
 #include <vector>
+#include <algorithm>
 #include <stdint.h>
 
 using namespace std;
@@ -53,56 +54,7 @@ std::vector<KeyPoint> keypoints;
 
 Peak lastPeaks[2];
 Peak peaks[2];
-
-/* ONE POSSIBLE WAY TO DO FAST DETECTION
-
-the idea is to sweep a row and find a pattern of points like /\ or /- along the line
-when found, record the peak max value, and column position
-the system might also to find a second peak further along the row,
-and it found, it will also be recorded in another data structure
-
-at this point the row scan ended and a new row is being processed
-if one peak was found in the previous line, we do not really know if it is the left ot right one!
-but its column position was recorded
-as more rows are processed, a peak at similar column may be found
-if this one
-
-
-// data structures for 2 blobs, one will naturally be left of the other!
-Blob peaks[2] = 0;
-
-
-
-// look at all rows of pixels
-for each row:
-
-    peakIdx = 0
-
-    for each col:
-
-
-        px <- img[row,col]
-
-        if px < threshold: continue
-
-        if px > prev:
-            incFound = 1
-
-        if px <= prev && incFound == 1:
-            // we have found a complete peak
-
-
-
-
-            // was this peak higher than the one previously found at this location?
-            if
-            // record the max value
-            peakMax = prev
-
-
-
-
- */
+vector<bool> CHECKED(PIGUN_RES_X*PIGUN_RES_Y, false);  // Boolean array for storingwhich pixel locations have been checked in the blob detection
 
 
 static int pigun_detect(unsigned char *data) {
@@ -195,14 +147,14 @@ MMAL_PORT_T *preview_input_port = NULL;
  * working on the given data array. Returns a list of indices found to belong
  * to the blob surrounding the starting point.
  */
-vector<pair<int, int> > bfs(int idx, int* data, vector<bool> &checked, const unsigned int &width, const unsigned int &height, const float &threshold) {
+vector<pair<int, int> > bfs(int idx, int* data, const float &threshold) {
     vector<pair<int, int> > indices;
     queue<int> toSearch;
 
     // First add the starting index to queue and mark as checked
     toSearch.push(idx);
     indices.push_back(make_pair(idx, data[idx]));
-    checked[idx] = true;
+    CHECKED[idx] = true;
 
     // Do search until stack is emptied
     while(!toSearch.empty()) {
@@ -210,22 +162,22 @@ vector<pair<int, int> > bfs(int idx, int* data, vector<bool> &checked, const uns
 
         // Check top, bottom, left, right. Add to stack if above treshold
         vector<int> toCheck;
-        int top = current - width;
-        int bottom = current + width;
+        int top = current - PIGUN_RES_X;
+        int bottom = current + PIGUN_RES_X;
         int left = current - 1;
         int right = current + 1;
 
         // Only check neighbours that are inside the image and not checked yet
-        if (top >= 0 && !checked[top]) {
+        if (top >= 0 && !CHECKED[top]) {
             toCheck.push_back(top);
         }
-        if (bottom < width*height && !checked[bottom]) {
+        if (bottom < PIGUN_RES_X*PIGUN_RES_Y && !CHECKED[bottom]) {
             toCheck.push_back(bottom);
         }
-        if (left >= 0 && !((left) % width == 0) && !checked[left]) {
+        if (left >= 0 && !((left) % PIGUN_RES_X == 0) && !CHECKED[left]) {
             toCheck.push_back(left);
         }
-        if (right < width*height && !((right) % width == 0) && !checked[right]) {
+        if (right < PIGUN_RES_X*PIGUN_RES_Y && !((right) % PIGUN_RES_X == 0) && !CHECKED[right]) {
             toCheck.push_back(right);
         }
 
@@ -234,7 +186,7 @@ vector<pair<int, int> > bfs(int idx, int* data, vector<bool> &checked, const uns
             int iVal = data[i];
             if (iVal >= threshold) {
                 toSearch.push(i);
-                checked[i] = true;
+                CHECKED[i] = true;
                 indices.push_back(make_pair(i, iVal));
             }
         }
@@ -248,31 +200,29 @@ vector<pair<int, int> > bfs(int idx, int* data, vector<bool> &checked, const uns
 
 static int pigun_detect2(unsigned char *data) {
 
-    const unsigned int w = 1280;
-    const unsigned int h = 720;
-    const unsigned int nBlobs = 2;
 
     // These parameters have to be tuned to optimize the search
+    const unsigned int nBlobs = 2;        // How many blobs to search
     const unsigned int dx = 4;            // How many pixels are skipped in x direction
     const unsigned int dy = 4;            // How many pixels are skipped in y direction
     const unsigned int minBlobSize = 10;  // Have many pizels does a blob have to have to be considered valid
     const float threshold = 200;          // The minimum threshold for pixel intensity in a blob
 
-    const unsigned int nx = ceil(float(w)/float(dx));
-    const unsigned int ny = ceil(float(h)/float(dy));
+    const unsigned int nx = ceil(float(PIGUN_RES_X)/float(dx));
+    const unsigned int ny = ceil(float(PIGUN_RES_Y)/float(dy));
 
-    // Create a boolean array for marking pixels as checked.
-    vector<bool> checked(w*h, false);
+    // Reset the boolean array for marking pixels as checked.
+    std::fill(CHECKED.begin(), CHECKED.end(), false);
 
-    // Here the order actually matters: we loop in this order to get good cache
+    // Here the order actually matters: we loop in this order to get better cache
     // hit rate
     vector<vector<pair<int, int> > > blobs;
     for (int j=0; j < ny; ++j) {
         for (int i=0; i < nx; ++i) {
-            int idx = j*dy*w + i*dx;
+            int idx = j*dy*PIGUN_RES_X + i*dx;
             float value = data[idx];
             if (value >= threshold && !checked[idx]) {
-                vector<pair<int, int> > indices = bfs(idx, &data[0], checked, w, h, threshold);
+                vector<pair<int, int> > indices = bfs(idx, &data[0], checked, threshold);
                 int blobSize = indices.size();
                 if (blobSize >= minBlobSize) {
                     blobs.push_back(indices);
@@ -298,8 +248,8 @@ static int pigun_detect2(unsigned char *data) {
             int val = wCoord.second;
 
             // Transform flattened index to 2D coordinate
-            int x = idx % w;
-            int y = idx / w;
+            int x = idx % PIGUN_RES_X;
+            int y = idx / PIGUN_RES_X;
 
             // Add the weighted coordinate
             sumX += x*val;
@@ -309,7 +259,7 @@ static int pigun_detect2(unsigned char *data) {
         // Calculate intensity weighted mean coordinates of blobs
         float meanX = float(sumX)/sumVal;
         float meanY = float(sumY)/sumVal;
-        cout << "Blob in location: " << meanX << ", " << meanY << endl;
+        //cout << "Blob in location: " << meanX << ", " << meanY << endl;
 
         // Store in global peaks variable
         peaks[iBlob].row = meanY;
@@ -345,7 +295,8 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
 
 
 	// this should find the peaks
-	int pfounds = pigun_detect(buffer->data);
+	//int pfounds = pigun_detect(buffer->data);  // Filippo
+    pigun_detect2(buffer->data);   		         // Lauri
 
 	//memset(buffer->data, tester, PIGUN_NPX);
 
@@ -378,7 +329,7 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
 	if (loop % 10 == 0) {
 		//fprintf(stderr, "loop = %d \n", loop);
 		printf("loop = %d, Framerate = %d fps, buffer->length = %d \n",
-            loop, loop / (d), buffer->length);
+            loop, loop / (d+1), buffer->length);
 	}
 
 	// we are done with this buffer, we can release it!
