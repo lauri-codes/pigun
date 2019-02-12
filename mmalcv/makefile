@@ -14,5 +14,5 @@ all:
 #	gcc -c $(INC) RaspiCamControl.c
 #	gcc -c $(INC) utils.c main.c
 #	gcc $(LIB) *.o $(LNK)
-	g++ $(LIB) $(INC) pigun.c $(LNK)
+	g++ $(LIB) $(INC) pigun.c pigun-helpers.c $(LNK)
 	
