@@ -46,7 +46,7 @@
 #define PIGUN_RES_X 160
 #define PIGUN_RES_Y 90
 // total number of pixels in the buffer - has to be the product of the previous 2
-#define PIGUN_NPX 57600 // 230400
+#define PIGUN_NPX 14400 //57600 // 230400
 
 extern MMAL_PORT_T *port_prv_in1;
 
