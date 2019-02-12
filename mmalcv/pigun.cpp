@@ -221,8 +221,8 @@ static int pigun_detect2(unsigned char *data) {
         for (int i=0; i < nx; ++i) {
             int idx = j*dy*PIGUN_RES_X + i*dx;
             float value = data[idx];
-            if (value >= threshold && !checked[idx]) {
-                vector<pair<int, int> > indices = bfs(idx, &data[0], checked, threshold);
+            if (value >= threshold && !CHECKED[idx]) {
+                vector<pair<int, int> > indices = bfs(idx, &data[0], CHECKED, threshold);
                 int blobSize = indices.size();
                 if (blobSize >= minBlobSize) {
                     blobs.push_back(indices);
