@@ -543,10 +543,9 @@ int main(int argc, char** argv) {
     }
      */
 
-    
-    //pigun_camera_awb_gains(MMAL_COMPONENT_T *camera, float r_gain, float b_gain);
     pigun_camera_blur(camera, atoi(argv[1]));
     pigun_camera_awb(camera, 0);
+    pigun_camera_awb_gains(camera, 0.5f, 0.2f);
 
      // this sends the buffers to the camera.video output port so it can start filling them frame data
     if (1) {
