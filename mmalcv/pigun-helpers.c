@@ -22,7 +22,8 @@ int pigun_camera_awb(MMAL_COMPONENT_T *camera, int on) {
 		param = {{MMAL_PARAMETER_AWB_MODE, sizeof(param)}, MMAL_PARAM_AWBMODE_OFF};
 	}
 
-	return mmal_status_to_int(mmal_port_parameter_set(camera->control, &param.hdr));
+	return 0;
+	//return mmal_status_to_int(mmal_port_parameter_set(camera->control, &param.hdr));
 }
 
 
@@ -41,7 +42,8 @@ int pigun_camera_awb_gains(MMAL_COMPONENT_T *camera, float r_gain, float b_gain)
 	param.b_gain.num = (unsigned int)(b_gain * 65536);
 	param.r_gain.den = param.b_gain.den = 65536;
 
-	return mmal_status_to_int(mmal_port_parameter_set(camera->control, &param.hdr));
+	//return mmal_status_to_int(mmal_port_parameter_set(camera->control, &param.hdr));
+	return 0;
 }
 
 
@@ -63,7 +65,8 @@ int pigun_camera_blur(MMAL_COMPONENT_T *camera, int on) {
 	else
 		imgFX = {{MMAL_PARAMETER_IMAGE_EFFECT,sizeof(imgFX)}, MMAL_PARAM_IMAGEFX_NONE};
 
-	return mmal_status_to_int(mmal_port_parameter_set(camera->control, &imgFX.hdr));
+	//return mmal_status_to_int(mmal_port_parameter_set(camera->control, &imgFX.hdr));
+	return 0;
 }
 
 
