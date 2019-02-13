@@ -22,7 +22,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>
-
+#include <ncurses.h>
 #include "bcm_host.h"
 #include "interface/vcos/vcos.h"
 
@@ -38,24 +38,40 @@
 #include <utility>
 #include <queue>
 #include <vector>
+#include <chrono>
+#include <future>
+#include <string>
 #include <algorithm>
 #include <stdint.h>
 
 using namespace std;
 
-/*
-#include <opencv2/opencv.hpp>
-using namespace cv;
-
-Mat frame, image;
-Ptr<SimpleBlobDetector> detector;
-std::vector<KeyPoint> keypoints;
-*/
+string GetLineFromCin() {
+    std::string line;
+    std::getline(std::cin, line);
+    return line;
+}
 
 Peak lastPeaks[2];
 Peak peaks[2];
-vector<bool> CHECKED(PIGUN_RES_X*PIGUN_RES_Y, false);  // Boolean array for storingwhich pixel locations have been checked in the blob detection
+vector<bool> CHECKED(PIGUN_RES_X*PIGUN_RES_Y, false);       // Boolean array for storing which pixel locations have been checked in the blob detection
+auto fut = std::async(std::launch::async, GetLineFromCin);  // Asyncronous task for listening to key input
+float offsetLeft = 0;                                       // Stores the relative position of the screen left edge
+float offsetRight = 0;                                      // Stores the relative position of the screen right edge
+float offsetUp = 0;                                         // Stores the relative position of the screen up edge
+float offsetDown = 0;                                       // Stores the relative position of the screen bottom edge
 
+int kbhit(void)
+{
+    int ch = getch();
+
+    if (ch != ERR) {
+        ungetch(ch);
+        return 1;
+    } else {
+        return 0;
+    }
+}
 
 static int pigun_detect(unsigned char *data) {
 
@@ -147,7 +163,7 @@ MMAL_PORT_T *preview_input_port = NULL;
  * working on the given data array. Returns a list of indices found to belong
  * to the blob surrounding the starting point.
  */
-vector<pair<int, int> > bfs(int idx, int* data, const float &threshold) {
+vector<pair<int, int> > bfs(int idx, unsigned char *data, const float &threshold) {
     vector<pair<int, int> > indices;
     queue<int> toSearch;
 
@@ -197,7 +213,7 @@ vector<pair<int, int> > bfs(int idx, int* data, const float &threshold) {
 
     return indices;
 }
-/*
+
 static int pigun_detect2(unsigned char *data) {
 
 
@@ -206,7 +222,7 @@ static int pigun_detect2(unsigned char *data) {
     const unsigned int dx = 4;            // How many pixels are skipped in x direction
     const unsigned int dy = 4;            // How many pixels are skipped in y direction
     const unsigned int minBlobSize = 10;  // Have many pizels does a blob have to have to be considered valid
-    const float threshold = 200;          // The minimum threshold for pixel intensity in a blob
+    const float threshold = 120;          // The minimum threshold for pixel intensity in a blob
 
     const unsigned int nx = ceil(float(PIGUN_RES_X)/float(dx));
     const unsigned int ny = ceil(float(PIGUN_RES_Y)/float(dy));
@@ -220,9 +236,9 @@ static int pigun_detect2(unsigned char *data) {
     for (int j=0; j < ny; ++j) {
         for (int i=0; i < nx; ++i) {
             int idx = j*dy*PIGUN_RES_X + i*dx;
-            float value = data[idx];
+            int value = data[idx];
             if (value >= threshold && !CHECKED[idx]) {
-                vector<pair<int, int> > indices = bfs(idx, &data[0], threshold);
+                vector<pair<int, int> > indices = bfs(idx, data, threshold);
                 int blobSize = indices.size();
                 if (blobSize >= minBlobSize) {
                     blobs.push_back(indices);
@@ -267,7 +283,7 @@ static int pigun_detect2(unsigned char *data) {
         ++iBlob;
     }
 }
-*/
+
 static void preview_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffer) {
     //printf("INFO:preview_buffer_callback buffer->length = %d\n", buffer->length);
 
@@ -276,27 +292,74 @@ static void preview_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buf
 
 static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffer) {
 
-	// timing stuff
-	static int loop = 0;
-	static struct timespec t1;
-	struct timespec t2;
 
-	if (loop == 0) {
-		clock_gettime(CLOCK_MONOTONIC, &t1);
-	}
+	// Measure elapsed time and print FPS
+	static int loop = 0;                // Global variable for loop number
+	static struct timespec t1 = {0, 0}; // Global variable for previous loop time
+	struct timespec t2;                 // Current loop time
+	float dt;                           // Elapsed time between frames
 
     clock_gettime(CLOCK_MONOTONIC, &t2);
-    int d = t2.tv_sec - t1.tv_sec;
+    if (t1.tv_sec != 0 && t1.tv_nsec != 0) {
+        dt = t2.tv_sec + (t2.tv_nsec / 1000000000.0) - (t1.tv_sec + (t1.tv_nsec / 1000000000.0));
+    }
     loop++;
+
+	if (loop > 0 && loop % 20 == 0) {
+		printf("loop = %d, Framerate = %f fps, buffer->length = %d \n",
+            loop, 1.0 / dt, buffer->length);
+	}
+	t1 = t2;
 
 	MMAL_BUFFER_HEADER_T *new_buffer;
 	MMAL_BUFFER_HEADER_T *preview_new_buffer;
 	MMAL_POOL_T *pool = (MMAL_POOL_T *) port->userdata;
 
-
-	// this should find the peaks
+	// This should find the peaks
 	//int pfounds = pigun_detect(buffer->data);  // Filippo
-    pigun_detect(buffer->data);   		         // Lauri
+    pigun_detect2(buffer->data);   		         // Lauri
+
+    // This is a funny one. At the beginning of the program we have launched an
+    // asynchonous task that listens to keyboard input. Then for each loop we
+    // check the status of that task and if finished we print the result an
+    // spawn a new task.
+    if (fut.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
+        auto line = fut.get();
+
+        // Set a new line. Subtle race condition between the previous line
+        // and this. Some lines could be missed. To aleviate, you need an
+        // io-only thread. I'll give an example of that as well.
+        fut = std::async(std::launch::async, GetLineFromCin);
+
+        // If l or r was entered, calibrate
+        if (line == "a" || line == "d" || line == "w" || line == "s") {
+
+            // Calculate screen x distance between LEDs
+            float ds = sqrt(pow(peaks[0].col - peaks[1].col, 2) + pow(peaks[0].row - peaks[1].row, 2));
+
+            // Calculate image center (gun pointer) location from center of peaks
+            float ledXCenter = (peaks[0].col + peaks[1].col)/2;
+            float ledYCenter = (peaks[0].row + peaks[1].row)/2;
+            float gunDx = PIGUN_RES_X/2 - ledXCenter;
+            float gunDy = PIGUN_RES_Y/2 - ledYCenter;
+
+            // Save relative distance with respect to peak center and separation
+            if (line == "a") {
+                offsetLeft = gunDx/ds;
+                cout << "Left edge calibrated" << endl;
+            } else if (line == "d") {
+                offsetRight = gunDx/ds;
+                cout << "Right edge calibrated" << endl;
+            } else if (line == "w") {
+                offsetUp = gunDy/ds;
+                cout << "Top edge calibrated" << endl;
+            } else if (line == "s") {
+                offsetDown = gunDy/ds;
+                cout << "Bottom edge calibrated" << endl;
+            }
+        }
+
+    }
 
 	//memset(buffer->data, tester, PIGUN_NPX);
 
@@ -306,8 +369,55 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
 	if (preview_new_buffer) {
 
 		memcpy(preview_new_buffer->data, buffer->data, PIGUN_NPX); // copy only Y
+
+		// Show crosshair
+        preview_new_buffer->data[PIGUN_RES_X*(int)(PIGUN_RES_Y/2.0)+(int)(PIGUN_RES_X/2.0)] = 255;
+
+		// Show the peaks with black dots
         preview_new_buffer->data[PIGUN_RES_X*(int)(peaks[0].row)+(int)(peaks[0].col)] = 0;
         preview_new_buffer->data[PIGUN_RES_X*(int)(peaks[1].row)+(int)(peaks[1].col)] = 0;
+
+        // Show the screen limits with lines
+        float ds = sqrt(pow(peaks[0].col - peaks[1].col, 2) + pow(peaks[0].row - peaks[1].row, 2));
+        float ledXCenter = (peaks[0].col + peaks[1].col)/2;
+        float ledYCenter = (peaks[0].row + peaks[1].row)/2;
+        float leftEdge = ledXCenter + offsetLeft*ds;
+        float rightEdge = ledXCenter + offsetRight*ds;
+        float upEdge = ledYCenter + offsetUp*ds;
+        float downEdge = ledYCenter + offsetDown*ds;
+        int leftPeakIdx, rightPeakIdx, bottomPeakIdx, topPeakIdx;
+        float dy;
+        if (peaks[0].col <= peaks[1].col) {
+            leftPeakIdx = 0;
+            rightPeakIdx = 1;
+        } else {
+            leftPeakIdx = 1;
+            rightPeakIdx = 0;
+        }
+        if (peaks[0].row <= peaks[1].row) {
+            topPeakIdx = 0;
+            bottomPeakIdx = 1;
+        } else {
+            topPeakIdx = 1;
+            bottomPeakIdx = 0;
+        }
+        float leftPeak = peaks[leftPeakIdx].col;
+        float rightPeak = peaks[rightPeakIdx].col;
+        float topPeak = peaks[topPeakIdx].row;
+        float bottomPeak = peaks[bottomPeakIdx].row;
+        float dx = rightPeak - leftPeak;
+        if (leftPeakIdx == topPeakIdx) {
+            dy = bottomPeak - topPeak;
+        } else {
+            dy = topPeak - bottomPeak;
+        }
+        float roll = 180/PI*atan2(dy, dx);
+        cout << roll << endl;
+
+        preview_new_buffer->data[PIGUN_RES_X*(int)(ledYCenter)+(int)(leftEdge)] = 255;
+        preview_new_buffer->data[PIGUN_RES_X*(int)(ledYCenter)+(int)(rightEdge)] = 255;
+        preview_new_buffer->data[PIGUN_RES_X*(int)(upEdge)+(int)(ledXCenter)] = 255;
+        preview_new_buffer->data[PIGUN_RES_X*(int)(downEdge)+(int)(ledXCenter)] = 255;
 
 		memset(&preview_new_buffer->data[PIGUN_NPX], 0, PIGUN_NPX/2); // reset U/V channels
 		//memset(&preview_new_buffer->data[PIGUN_NPX+PIGUN_NPX/4], 0b10101010, PIGUN_NPX/4);
@@ -322,14 +432,6 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
 		}
 	} else {
 		printf("ERROR: mmal_queue_get (%d)\n", preview_new_buffer);
-	}
-
-
-
-	if (loop % 10 == 0) {
-		//fprintf(stderr, "loop = %d \n", loop);
-		printf("loop = %d, Framerate = %d fps, buffer->length = %d \n",
-            loop, loop / (d+1), buffer->length);
 	}
 
 	// we are done with this buffer, we can release it!
@@ -360,8 +462,6 @@ int main(int argc, char** argv) {
     MMAL_ES_FORMAT_T *format;
     MMAL_STATUS_T status;
     MMAL_PORT_T *camera_preview_port = NULL, *camera_video_port = NULL, *camera_still_port = NULL;
-
-	//detector = SimpleBlobDetector::create();
 
     MMAL_CONNECTION_T *camera_preview_connection = 0;
 
@@ -543,9 +643,9 @@ int main(int argc, char** argv) {
     }
      */
 
-    pigun_camera_blur(camera, atoi(argv[1]));
-    pigun_camera_awb(camera, 0);
-    pigun_camera_awb_gains(camera, 0.5f, 0.2f);
+    //pigun_camera_awb(camera, 0);
+    //pigun_camera_awb_gains(MMAL_COMPONENT_T *camera, float r_gain, float b_gain);
+    //pigun_camera_blur(camera, 1);
 
      // this sends the buffers to the camera.video output port so it can start filling them frame data
     if (1) {
