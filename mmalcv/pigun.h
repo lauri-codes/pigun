@@ -59,13 +59,30 @@ struct Peak {
 
    // 0->struct is unused, 1->peak found
    unsigned short found;
-   
+
    float row, col;
    float total;
    float tRow, tCol;
 
 };
 
+class Vector3D {
+    public:
+    float x;
+    float y;
+    float z;
+    Vector3D (float x, float y, float z) {
+        this->x = x;
+        this->y = y;
+        this->z = z;
+    };
+    Vector3D crossProduct(Vector3D other) {
+        float newX = y*other.z - z*other.y;
+        float newY = -x*other.z + z*other.x;
+        float newZ = x*other.y - y*other.x;
+        return Vector3(newX, newY, newZ);
+    }
+};
 
 
 

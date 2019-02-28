@@ -22,7 +22,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>
-#include <ncurses.h>
+#include <Eigen/Dense>
 #include "bcm_host.h"
 #include "interface/vcos/vcos.h"
 
@@ -45,6 +45,7 @@
 #include <stdint.h>
 
 using namespace std;
+using namespace Eigen;
 
 string GetLineFromCin() {
     std::string line;
@@ -53,25 +54,13 @@ string GetLineFromCin() {
 }
 
 Peak lastPeaks[2];
-Peak peaks[2];
+Peak peaks[3];
 vector<bool> CHECKED(PIGUN_RES_X*PIGUN_RES_Y, false);       // Boolean array for storing which pixel locations have been checked in the blob detection
 auto fut = std::async(std::launch::async, GetLineFromCin);  // Asyncronous task for listening to key input
 float offsetLeft = 0;                                       // Stores the relative position of the screen left edge
 float offsetRight = 0;                                      // Stores the relative position of the screen right edge
 float offsetUp = 0;                                         // Stores the relative position of the screen up edge
 float offsetDown = 0;                                       // Stores the relative position of the screen bottom edge
-
-int kbhit(void)
-{
-    int ch = getch();
-
-    if (ch != ERR) {
-        ungetch(ch);
-        return 1;
-    } else {
-        return 0;
-    }
-}
 
 static int pigun_detect(unsigned char *data) {
 
@@ -218,7 +207,7 @@ static int pigun_detect2(unsigned char *data) {
 
 
     // These parameters have to be tuned to optimize the search
-    const unsigned int nBlobs = 2;        // How many blobs to search
+    const unsigned int nBlobs = 3;        // How many blobs to search
     const unsigned int dx = 4;            // How many pixels are skipped in x direction
     const unsigned int dy = 4;            // How many pixels are skipped in y direction
     const unsigned int minBlobSize = 10;  // Have many pizels does a blob have to have to be considered valid
@@ -293,7 +282,7 @@ static void preview_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buf
 static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffer) {
 
 
-	// Measure elapsed time and print FPS
+	// Measure elapsed time and print instantaneous FPS
 	static int loop = 0;                // Global variable for loop number
 	static struct timespec t1 = {0, 0}; // Global variable for previous loop time
 	struct timespec t2;                 // Current loop time
@@ -376,50 +365,87 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
 		// Show the peaks with black dots
         preview_new_buffer->data[PIGUN_RES_X*(int)(peaks[0].row)+(int)(peaks[0].col)] = 0;
         preview_new_buffer->data[PIGUN_RES_X*(int)(peaks[1].row)+(int)(peaks[1].col)] = 0;
+        preview_new_buffer->data[PIGUN_RES_X*(int)(peaks[2].row)+(int)(peaks[2].col)] = 0;
 
         // Show the screen limits with lines
-        float ds = sqrt(pow(peaks[0].col - peaks[1].col, 2) + pow(peaks[0].row - peaks[1].row, 2));
-        float ledXCenter = (peaks[0].col + peaks[1].col)/2;
-        float ledYCenter = (peaks[0].row + peaks[1].row)/2;
-        float leftEdge = ledXCenter + offsetLeft*ds;
-        float rightEdge = ledXCenter + offsetRight*ds;
-        float upEdge = ledYCenter + offsetUp*ds;
-        float downEdge = ledYCenter + offsetDown*ds;
-        int leftPeakIdx, rightPeakIdx, bottomPeakIdx, topPeakIdx;
-        float dy;
-        if (peaks[0].col <= peaks[1].col) {
-            leftPeakIdx = 0;
-            rightPeakIdx = 1;
-        } else {
-            leftPeakIdx = 1;
-            rightPeakIdx = 0;
-        }
-        if (peaks[0].row <= peaks[1].row) {
-            topPeakIdx = 0;
-            bottomPeakIdx = 1;
-        } else {
-            topPeakIdx = 1;
-            bottomPeakIdx = 0;
-        }
-        float leftPeak = peaks[leftPeakIdx].col;
-        float rightPeak = peaks[rightPeakIdx].col;
-        float topPeak = peaks[topPeakIdx].row;
-        float bottomPeak = peaks[bottomPeakIdx].row;
-        float dx = rightPeak - leftPeak;
-        if (leftPeakIdx == topPeakIdx) {
-            dy = bottomPeak - topPeak;
-        } else {
-            dy = topPeak - bottomPeak;
-        }
-        float roll = 180/PI*atan2(dy, dx);
-        cout << roll << endl;
+        //float ds = sqrt(pow(peaks[0].col - peaks[1].col, 2) + pow(peaks[0].row - peaks[1].row, 2));
+        //float ledXCenter = (peaks[0].col + peaks[1].col)/2;
+        //float ledYCenter = (peaks[0].row + peaks[1].row)/2;
+        //float leftEdge = ledXCenter + offsetLeft*ds;
+        //float rightEdge = ledXCenter + offsetRight*ds;
+        //float upEdge = ledYCenter + offsetUp*ds;
+        //float downEdge = ledYCenter + offsetDown*ds;
+        //int leftPeakIdx, rightPeakIdx, bottomPeakIdx, topPeakIdx;
+        //float dy;
+        //if (peaks[0].col <= peaks[1].col) {
+            //leftPeakIdx = 0;
+            //rightPeakIdx = 1;
+        //} else {
+            //leftPeakIdx = 1;
+            //rightPeakIdx = 0;
+        //}
+        //if (peaks[0].row <= peaks[1].row) {
+            //topPeakIdx = 0;
+            //bottomPeakIdx = 1;
+        //} else {
+            //topPeakIdx = 1;
+            //bottomPeakIdx = 0;
+        //}
+        //float leftPeak = peaks[leftPeakIdx].col;
+        //float rightPeak = peaks[rightPeakIdx].col;
+        //float topPeak = peaks[topPeakIdx].row;
+        //float bottomPeak = peaks[bottomPeakIdx].row;
+        //float dx = rightPeak - leftPeak;
+        //if (leftPeakIdx == topPeakIdx) {
+            //dy = bottomPeak - topPeak;
+        //} else {
+            //dy = topPeak - bottomPeak;
+        //}
+        //float roll = 180/PI*atan2(dy, dx);
+        //cout << roll << endl;
 
-        preview_new_buffer->data[PIGUN_RES_X*(int)(ledYCenter)+(int)(leftEdge)] = 255;
-        preview_new_buffer->data[PIGUN_RES_X*(int)(ledYCenter)+(int)(rightEdge)] = 255;
-        preview_new_buffer->data[PIGUN_RES_X*(int)(upEdge)+(int)(ledXCenter)] = 255;
-        preview_new_buffer->data[PIGUN_RES_X*(int)(downEdge)+(int)(ledXCenter)] = 255;
+        // Decide which peak is which. The decision is based on the correct
+        // handedness of the peaks and the minimum rotation with respect to
+        // up-direction.
+        float minAngle = 180;
+        array<int, 3> abc;
+        vector<int> indices{0,1,2};
+        do {
+            int i = indices[0];
+            int j = indices[1];
+            int k = indices[2];
+            Vector3f a(peaks[i].col, -peaks[i].row, 0);
+            Vector3f b(peaks[j].col, -peaks[j].row, 0);
+            Vector3f c(peaks[k].col, -peaks[k].row, 0);
 
-		memset(&preview_new_buffer->data[PIGUN_NPX], 0, PIGUN_NPX/2); // reset U/V channels
+            // Calculate the cross-product to see if the handedness is correct
+            Vector3f ba = a-b;
+            Vector3f bc = c-b;
+            Vector3f cross = ba.cross(bc);
+            float z = cross.z();
+
+            // Calculate angle of ba vector to up direction
+            if (z <= 0) {
+                float angle = 90 - abs(atan(ba.y()/ba.x())*180.0/PI);
+                if (angle < minAngle) {
+                    abc = {i, j, k};
+                }
+            }
+        } while (next_permutation(indices.begin(), indices.end()));
+
+        Peak a = peaks[abc[0]];
+        Peak b = peaks[abc[1]];
+        Peak c = peaks[abc[2]];
+        preview_new_buffer->data[PIGUN_RES_X*(int)(a.row+1)+(int)(a.col)] = 0;
+        preview_new_buffer->data[PIGUN_RES_X*(int)(b.row+2)+(int)(b.col)] = 0;
+        preview_new_buffer->data[PIGUN_RES_X*(int)(c.row+3)+(int)(c.col)] = 0;
+
+        //preview_new_buffer->data[PIGUN_RES_X*(int)(ledYCenter)+(int)(leftEdge)] = 255;
+        //preview_new_buffer->data[PIGUN_RES_X*(int)(ledYCenter)+(int)(rightEdge)] = 255;
+        //preview_new_buffer->data[PIGUN_RES_X*(int)(upEdge)+(int)(ledXCenter)] = 255;
+        //preview_new_buffer->data[PIGUN_RES_X*(int)(downEdge)+(int)(ledXCenter)] = 255;
+
+		memset(&preview_new_buffer->data[PIGUN_NPX], 0b10101010, PIGUN_NPX/2); // reset U/V channels
 		//memset(&preview_new_buffer->data[PIGUN_NPX+PIGUN_NPX/4], 0b10101010, PIGUN_NPX/4);
 
         preview_new_buffer->length = buffer->length;
