@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>three.js webgl - cameras</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<style>
+			body {
+				color: #808080;
+				font-family:Monospace;
+				font-size:13px;
+				text-align:center;
+				background-color: #000;
+				margin: 0px;
+				overflow: hidden;
+			}
+			#info {
+				position: absolute;
+				top: 5px; width: 100%;
+				z-index: 100;
+			}
+			a {color: #0080ff; }
+			b { color: lightgreen }
+		</style>
+	</head>
+	<body>
+		<div id="info"><a href="http://threejs.org" target="_blank" rel="noopener">three.js</a> - cameras<br/>
+		<b>O</b> orthographic <b>P</b> perspective
+		</div>
+
+		<script src="./node_modules/three/build/three.js"></script>
+
+		<script>
+			var SCREEN_WIDTH = window.innerWidth;
+			var SCREEN_HEIGHT = window.innerHeight;
+			var aspect = SCREEN_WIDTH / SCREEN_HEIGHT;
+			var container, stats;
+			var camera, scene, renderer;
+			var cameraRig, activeCamera, activeHelper;
+			var cameraPerspective;
+			var cameraPerspectiveHelper;
+			var frustumSize = 600;
+
+            var fovX = 62.2;
+            var fovY = 48.8;
+            var near = 150;
+            var far = 1000
+            var camAspect = fovX/fovY;
+			init();
+
+            // Show once with render, or update with animate
+            render();
+            <!--animate();-->
+
+			function init() {
+				container = document.createElement( 'div' );
+				document.body.appendChild( container );
+				scene = new THREE.Scene();
+                <!--scene.background = new THREE.Color( 0xffffff );-->
+
+                // This is the outsider camera filming the whole scene
+				camera = new THREE.PerspectiveCamera( 50, 0.5 * aspect, 1, 10000 );
+				camera.position.z = 2500;
+
+				// This is the actual camera
+				cameraPerspective = new THREE.PerspectiveCamera( fovX, camAspect, near, far );
+
+                // Set camera position
+                cameraPerspective.position.set(0, 0, 0);
+
+                // Set camera rotation
+                cameraPerspective.rotation.x = 0.0*Math.PI;
+                cameraPerspective.rotation.y = 0.00*Math.PI;
+                cameraPerspective.rotation.z = 0.0*Math.PI;
+
+				cameraPerspectiveHelper = new THREE.CameraHelper( cameraPerspective );
+				scene.add( cameraPerspectiveHelper );
+				activeCamera = cameraPerspective;
+				activeHelper = cameraPerspectiveHelper;
+
+                // Add points representing lights
+                var dotGeometry = new THREE.Geometry();
+                var pointDist = 100;
+                var pointZ = -500;
+                dotGeometry.vertices.push(new THREE.Vector3( 0, 0, pointZ));
+                dotGeometry.vertices.push(new THREE.Vector3( pointDist, 0, pointZ));
+                dotGeometry.vertices.push(new THREE.Vector3( 0, pointDist, pointZ));
+                var dotMaterial = new THREE.PointsMaterial( { size: 20, sizeAttenuation: true } );
+                var dot = new THREE.Points( dotGeometry, dotMaterial );
+                scene.add( dot );
+
+                //
+
+				// Setup renderer
+				renderer = new THREE.WebGLRenderer( { antialias: true } );
+				renderer.setPixelRatio( window.devicePixelRatio );
+				renderer.setSize( SCREEN_WIDTH, SCREEN_HEIGHT );
+				container.appendChild( renderer.domElement );
+                renderer.autoClear = false;
+
+				//
+				window.addEventListener( 'resize', onWindowResize, false );
+			}
+			//
+			function onWindowResize() {
+				SCREEN_WIDTH = window.innerWidth;
+				SCREEN_HEIGHT = window.innerHeight;
+				aspect = SCREEN_WIDTH / SCREEN_HEIGHT;
+				renderer.setSize( SCREEN_WIDTH, SCREEN_HEIGHT );
+				camera.aspect = 0.5 * aspect;
+				camera.updateProjectionMatrix();
+				cameraPerspective.aspect = 0.5 * aspect;
+				cameraPerspective.updateProjectionMatrix();
+			}
+			//
+			function animate() {
+				requestAnimationFrame( animate );
+				render();
+			}
+			function render() {
+				var r = Date.now() * 0.0005;
+                cameraPerspective.updateProjectionMatrix();
+                cameraPerspectiveHelper.update();
+                cameraPerspectiveHelper.visible = true;
+
+				renderer.clear();
+				activeHelper.visible = false;
+
+                // Display borders for camera
+                renderer.setScissorTest( true );
+                renderer.setScissor( 0, (SCREEN_HEIGHT - SCREEN_WIDTH / 2 / camAspect) / 2, SCREEN_WIDTH / 2, SCREEN_WIDTH / 2 / camAspect );
+                renderer.setClearColor( 0x333333, 1 ); // border color
+                renderer.clearColor(); // clear color buffer
+                renderer.setScissorTest( false );
+
+                // Render view from camera on left side
+				renderer.setViewport( 0, (SCREEN_HEIGHT - SCREEN_WIDTH / 2 / camAspect) / 2, SCREEN_WIDTH / 2, SCREEN_WIDTH / 2 / camAspect );
+				renderer.render( scene, activeCamera );
+
+                // Render scene on right side
+				activeHelper.visible = true;
+				renderer.setViewport( SCREEN_WIDTH / 2, 0, SCREEN_WIDTH / 2, SCREEN_HEIGHT );
+				renderer.render( scene, camera );
+			}
+		</script>
+
+	</body>
+</html>

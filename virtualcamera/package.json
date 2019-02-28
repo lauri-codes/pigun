@@ -1,0 +1,16 @@
+{
+  "name": "virtualcamera",
+  "version": "1.0.0",
+  "description": "A three.js camera simulation",
+  "devDependencies": {
+    "lite-server": "^2.2.2",
+    "three": "^0.84.0"
+  },
+  "scripts": {
+    "dev": "npm run lite",
+    "lite": "lite-server",
+    "start": "npm run lite"
+  },
+  "author": "Lauri Himanen",
+  "license": "Apache Licence Version 2.0"
+}
