@@ -2,6 +2,24 @@
 #include "pigun.h"
 
 
+int pigun_camera_exposuremode(MMAL_COMPONENT_T *camera, int on) {
+
+  MMAL_PARAM_EXPOSUREMODE_T mode;
+  
+  if(on == 1) {
+    mode = MMAL_PARAM_EXPOSUREMODE_OFF;
+  } else {
+    mode = MMAL_PARAM_EXPOSUREMODE_AUTO;
+  }
+  
+  //raspicamcontrol_set_exposure_mode(camera, MMAL_PARAM_EXPOSUREMODE_AUTO);
+  MMAL_PARAMETER_EXPOSUREMODE_T exp_mode = {{MMAL_PARAMETER_EXPOSURE_MODE, sizeof(exp_mode)}, mode};
+  mmal_port_parameter_set(camera->control, &exp_mode.hdr);
+  
+  return 0;
+}
+
+
 
 /**
  * Set the aWB (auto white balance) mode for images
