@@ -264,7 +264,7 @@ static int pigun_detect2(unsigned char *data) {
         // Calculate intensity weighted mean coordinates of blobs
         float meanX = float(sumX)/sumVal;
         float meanY = float(sumY)/sumVal;
-        //cout << "Blob in location: " << meanX << ", " << meanY << endl;
+        cout << "Blob in location: " << meanX << ", " << meanY << " -- " << sumVal << endl;
 
         // Store in global peaks variable
         peaks[iBlob].row = meanY;
