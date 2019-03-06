@@ -591,11 +591,13 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-	// not sure if this is needed - seems to work without as well
+    // not sure if this is needed - seems to work without as well
     status = mmal_component_enable(camera);
+    
+    // disable exposure mode
+    pigun_camera_exposuremode(camera, 0);
 
-
-	// create a renderer component to show the video on screen
+    // create a renderer component to show the video on screen
     status = mmal_component_create(MMAL_COMPONENT_DEFAULT_VIDEO_RENDERER, &preview);
     if (status != MMAL_SUCCESS) {
         printf("Error: unable to create preview (%u)\n", status);
@@ -610,7 +612,7 @@ int main(int argc, char** argv) {
         param.hdr.size = sizeof (MMAL_DISPLAYREGION_T);
         param.set = MMAL_DISPLAY_SET_LAYER;
         param.layer = 0;
-        param.set |= MMAL_DISPLAY_SET_FULLSCREEN;
+        //param.set |= MMAL_DISPLAY_SET_FULLSCREEN;
         param.fullscreen = 1;
         status = mmal_port_parameter_set(preview_input_port, &param.hdr);
         if (status != MMAL_SUCCESS && status != MMAL_ENOSYS) {

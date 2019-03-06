@@ -83,6 +83,7 @@ void pigun_video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffer
 int pigun_camera_awb(MMAL_COMPONENT_T *camera, int on);
 int pigun_camera_awb_gains(MMAL_COMPONENT_T *camera, float r_gain, float b_gain);
 int pigun_camera_blur(MMAL_COMPONENT_T *camera, int on);
+int pigun_camera_exposuremode(MMAL_COMPONENT_T *camera, int on);
 
 
 
