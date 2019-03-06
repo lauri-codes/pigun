@@ -403,7 +403,7 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
         //}
         //float roll = 180/PI*atan2(dy, dx);
         //cout << roll << endl;
-
+	/*
         // Decide which peak is which. The decision is based on the correct
         // handedness of the peaks and the minimum rotation with respect to
         // up-direction.
@@ -439,7 +439,7 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
         preview_new_buffer->data[PIGUN_RES_X*(int)(a.row+1)+(int)(a.col)] = 0;
         preview_new_buffer->data[PIGUN_RES_X*(int)(b.row+2)+(int)(b.col)] = 0;
         preview_new_buffer->data[PIGUN_RES_X*(int)(c.row+3)+(int)(c.col)] = 0;
-
+	*/
         //preview_new_buffer->data[PIGUN_RES_X*(int)(ledYCenter)+(int)(leftEdge)] = 255;
         //preview_new_buffer->data[PIGUN_RES_X*(int)(ledYCenter)+(int)(rightEdge)] = 255;
         //preview_new_buffer->data[PIGUN_RES_X*(int)(upEdge)+(int)(ledXCenter)] = 255;
