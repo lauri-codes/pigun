@@ -57,10 +57,8 @@ Peak lastPeaks[2];
 Peak peaks[3];
 vector<bool> CHECKED(PIGUN_RES_X*PIGUN_RES_Y, false);       // Boolean array for storing which pixel locations have been checked in the blob detection
 auto fut = std::async(std::launch::async, GetLineFromCin);  // Asyncronous task for listening to key input
-float offsetLeft = 0;                                       // Stores the relative position of the screen left edge
-float offsetRight = 0;                                      // Stores the relative position of the screen right edge
-float offsetUp = 0;                                         // Stores the relative position of the screen up edge
-float offsetDown = 0;                                       // Stores the relative position of the screen bottom edge
+pair<float,float> bottomLeft;                               // Stores the relative position of the screen left edge
+pair<float,float> topRight;                                 // Stores the relative position of the screen left edge
 
 static int pigun_detect(unsigned char *data) {
 
@@ -207,11 +205,11 @@ static int pigun_detect2(unsigned char *data) {
 
 
     // These parameters have to be tuned to optimize the search
-    const unsigned int nBlobs = 3;        // How many blobs to search
+    const unsigned int nBlobs = 2;        // How many blobs to search
     const unsigned int dx = 4;            // How many pixels are skipped in x direction
     const unsigned int dy = 4;            // How many pixels are skipped in y direction
-    const unsigned int minBlobSize = 10;  // Have many pizels does a blob have to have to be considered valid
-    const float threshold = 120;          // The minimum threshold for pixel intensity in a blob
+    const unsigned int minBlobSize = 5;   // Have many pizels does a blob have to have to be considered valid
+    const float threshold = 80;           // The minimum threshold for pixel intensity in a blob
 
     const unsigned int nx = ceil(float(PIGUN_RES_X)/float(dx));
     const unsigned int ny = ceil(float(PIGUN_RES_Y)/float(dy));
@@ -248,9 +246,15 @@ static int pigun_detect2(unsigned char *data) {
         float sumX = 0;
         float sumY = 0;
         float sumVal = 0;
+        float maxI = 0;
         for ( auto &wCoord : blob ) {
             int idx = wCoord.first;
             int val = wCoord.second;
+
+            // Save maximum intensity
+            if (val > maxI) {
+                maxI = val;
+            }
 
             // Transform flattened index to 2D coordinate
             int x = idx % PIGUN_RES_X;
@@ -264,11 +268,12 @@ static int pigun_detect2(unsigned char *data) {
         // Calculate intensity weighted mean coordinates of blobs
         float meanX = float(sumX)/sumVal;
         float meanY = float(sumY)/sumVal;
-        cout << "Blob in location: " << meanX << ", " << meanY << " -- " << sumVal << endl;
+        //cout << "Blob in location: " << meanX << ", " << meanY << " -- " << sumVal << endl;
 
         // Store in global peaks variable
         peaks[iBlob].row = meanY;
         peaks[iBlob].col = meanX;
+        peaks[iBlob].maxI = maxI;
         ++iBlob;
     }
 }
@@ -294,7 +299,7 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
     }
     loop++;
 
-	if (loop > 0 && loop % 20 == 0) {
+	if (loop > 0 && loop % 50 == 0) {
 		printf("loop = %d, Framerate = %f fps, buffer->length = %d \n",
             loop, 1.0 / dt, buffer->length);
 	}
@@ -308,10 +313,28 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
 	//int pfounds = pigun_detect(buffer->data);  // Filippo
     pigun_detect2(buffer->data);   		         // Lauri
 
+    // Calculate the distance to the lights
+    float fovX = 2*1280.0/3280.0*62.2; // binning*acquired resolution/full resolution*full fov
+    float fovY = 2*720.0/2464.0*48.8;
+    float anglesPerPixelX = fovX/320;
+    float anglesPerPixelY = fovY/180;
+    Vector3f a(peaks[0].col, -peaks[0].row, 0);
+    Vector3f b(peaks[1].col, -peaks[1].row, 0);
+    Vector3f dist = a-b;
+    dist.x() *= anglesPerPixelX;
+    dist.y() *= anglesPerPixelY;
+    float abAngle = dist.norm();
+    float aI = peaks[0].maxI;
+    float bI = peaks[1].maxI;
+    float abRatio = aI/bI;
+    //cout << "a-b angle: " << abAngle << ", a-b intensity ratio: " << abRatio << ", a intensity: "  << aI << endl;
+    //cout << "b intensity: " << bI << ", a intensity: " << aI << endl;
+
     // This is a funny one. At the beginning of the program we have launched an
     // asynchonous task that listens to keyboard input. Then for each loop we
     // check the status of that task and if finished we print the result an
     // spawn a new task.
+    //
     if (fut.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
         auto line = fut.get();
 
@@ -321,7 +344,7 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
         fut = std::async(std::launch::async, GetLineFromCin);
 
         // If l or r was entered, calibrate
-        if (line == "a" || line == "d" || line == "w" || line == "s") {
+        if (line == "a" || line == "s") {
 
             // Calculate screen x distance between LEDs
             float ds = sqrt(pow(peaks[0].col - peaks[1].col, 2) + pow(peaks[0].row - peaks[1].row, 2));
@@ -334,17 +357,11 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
 
             // Save relative distance with respect to peak center and separation
             if (line == "a") {
-                offsetLeft = gunDx/ds;
-                cout << "Left edge calibrated" << endl;
-            } else if (line == "d") {
-                offsetRight = gunDx/ds;
-                cout << "Right edge calibrated" << endl;
-            } else if (line == "w") {
-                offsetUp = gunDy/ds;
-                cout << "Top edge calibrated" << endl;
+                bottomLeft = make_pair(gunDx/ds, gunDy/ds);
+                cout << "Bottom left calibrated at: " << bottomLeft.first << ", " << bottomLeft.second << endl;
             } else if (line == "s") {
-                offsetDown = gunDy/ds;
-                cout << "Bottom edge calibrated" << endl;
+                topRight = make_pair(gunDx/ds, gunDy/ds);
+                cout << "Top right calibrated at: " << topRight.first << ", " << topRight.second << endl;
             }
         }
 
@@ -365,16 +382,18 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
 		// Show the peaks with black dots
         preview_new_buffer->data[PIGUN_RES_X*(int)(peaks[0].row)+(int)(peaks[0].col)] = 0;
         preview_new_buffer->data[PIGUN_RES_X*(int)(peaks[1].row)+(int)(peaks[1].col)] = 0;
-        preview_new_buffer->data[PIGUN_RES_X*(int)(peaks[2].row)+(int)(peaks[2].col)] = 0;
+        //preview_new_buffer->data[PIGUN_RES_X*(int)(peaks[2].row)+(int)(peaks[2].col)] = 0;
 
         // Show the screen limits with lines
-        //float ds = sqrt(pow(peaks[0].col - peaks[1].col, 2) + pow(peaks[0].row - peaks[1].row, 2));
-        //float ledXCenter = (peaks[0].col + peaks[1].col)/2;
-        //float ledYCenter = (peaks[0].row + peaks[1].row)/2;
-        //float leftEdge = ledXCenter + offsetLeft*ds;
-        //float rightEdge = ledXCenter + offsetRight*ds;
-        //float upEdge = ledYCenter + offsetUp*ds;
-        //float downEdge = ledYCenter + offsetDown*ds;
+        float ds = sqrt(pow(peaks[0].col - peaks[1].col, 2) + pow(peaks[0].row - peaks[1].row, 2));
+        float ledXCenter = (peaks[0].col + peaks[1].col)/2;
+        float ledYCenter = (peaks[0].row + peaks[1].row)/2;
+        //cout << ledXCenter << endl;
+        //cout << ledYCenter << endl;
+        float left = ledXCenter + bottomLeft.first*ds;
+        float right = ledXCenter + topRight.first*ds;
+        float top = ledYCenter + topRight.second*ds;
+        float bottom = ledYCenter + bottomLeft.second*ds;
         //int leftPeakIdx, rightPeakIdx, bottomPeakIdx, topPeakIdx;
         //float dy;
         //if (peaks[0].col <= peaks[1].col) {
@@ -440,10 +459,12 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
         preview_new_buffer->data[PIGUN_RES_X*(int)(b.row+2)+(int)(b.col)] = 0;
         preview_new_buffer->data[PIGUN_RES_X*(int)(c.row+3)+(int)(c.col)] = 0;
 	*/
-        //preview_new_buffer->data[PIGUN_RES_X*(int)(ledYCenter)+(int)(leftEdge)] = 255;
-        //preview_new_buffer->data[PIGUN_RES_X*(int)(ledYCenter)+(int)(rightEdge)] = 255;
-        //preview_new_buffer->data[PIGUN_RES_X*(int)(upEdge)+(int)(ledXCenter)] = 255;
-        //preview_new_buffer->data[PIGUN_RES_X*(int)(downEdge)+(int)(ledXCenter)] = 255;
+        preview_new_buffer->data[PIGUN_RES_X*(int)(bottom)+(int)(left)] = 255;
+        preview_new_buffer->data[PIGUN_RES_X*(int)(top)+(int)(right)] = 255;
+        preview_new_buffer->data[PIGUN_RES_X*(int)(ledYCenter)+(int)(ledXCenter)] = 255;
+        preview_new_buffer->data[PIGUN_RES_X*(int)(ledYCenter)+(int)(ledXCenter)] = 255;
+        //preview_new_buffer->data[PIGUN_RES_X*(int)(ledYCenter+bottomLeft.second)+(int)(ledXCenter+bottomLeft.first)] = 255;
+        //preview_new_buffer->data[PIGUN_RES_X*(int)(ledYCenter+topRight.second)+(int)(ledXCenter+topRight.first)] = 255;
 
 		memset(&preview_new_buffer->data[PIGUN_NPX], 0b10101010, PIGUN_NPX/2); // reset U/V channels
 		//memset(&preview_new_buffer->data[PIGUN_NPX+PIGUN_NPX/4], 0b10101010, PIGUN_NPX/4);
@@ -593,7 +614,7 @@ int main(int argc, char** argv) {
 
     // not sure if this is needed - seems to work without as well
     status = mmal_component_enable(camera);
-    
+
     // disable exposure mode
     pigun_camera_exposuremode(camera, 0);
 
@@ -671,9 +692,9 @@ int main(int argc, char** argv) {
     }
      */
 
-    //pigun_camera_awb(camera, 0);
-    //pigun_camera_awb_gains(MMAL_COMPONENT_T *camera, float r_gain, float b_gain);
-    //pigun_camera_blur(camera, 1);
+    pigun_camera_awb(camera, 0);
+    pigun_camera_awb_gains(camera, 1, 1);
+    pigun_camera_blur(camera, 1);
 
      // this sends the buffers to the camera.video output port so it can start filling them frame data
     if (1) {

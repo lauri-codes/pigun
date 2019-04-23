@@ -61,6 +61,7 @@ struct Peak {
    unsigned short found;
 
    float row, col;
+   float maxI;
    float total;
    float tRow, tCol;
 
