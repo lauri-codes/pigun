@@ -57,8 +57,8 @@ Peak lastPeaks[2];
 Peak peaks[3];
 vector<bool> CHECKED(PIGUN_RES_X*PIGUN_RES_Y, false);       // Boolean array for storing which pixel locations have been checked in the blob detection
 auto fut = std::async(std::launch::async, GetLineFromCin);  // Asyncronous task for listening to key input
-pair<float,float> bottomLeft;                               // Stores the relative position of the screen left edge
-pair<float,float> topRight;                                 // Stores the relative position of the screen left edge
+Vector3f bottomLeft(0,0,0);                                   // Stores the relative position of the screen left edge
+Vector3f topRight(0,0,0);                                     // Stores the relative position of the screen left edge
 
 static int pigun_detect(unsigned char *data) {
 
@@ -208,7 +208,7 @@ static int pigun_detect2(unsigned char *data) {
     const unsigned int nBlobs = 2;        // How many blobs to search
     const unsigned int dx = 4;            // How many pixels are skipped in x direction
     const unsigned int dy = 4;            // How many pixels are skipped in y direction
-    const unsigned int minBlobSize = 5;   // Have many pizels does a blob have to have to be considered valid
+    const unsigned int minBlobSize = 5;   // Have many pixels does a blob have to have to be considered valid
     const float threshold = 80;           // The minimum threshold for pixel intensity in a blob
 
     const unsigned int nx = ceil(float(PIGUN_RES_X)/float(dx));
@@ -278,6 +278,59 @@ static int pigun_detect2(unsigned char *data) {
     }
 }
 
+// Calculate the coordinate system for this frame
+pair<Vector3f, Vector3f> getAxes()
+{
+    // Decide which light is which
+    float x0 = peaks[0].col;
+    float x1 = peaks[1].col;
+    int aIndex, bIndex;
+    if (x0 <= x1) {
+        aIndex = 0;
+        bIndex = 1;
+    } else {
+        aIndex = 1;
+        bIndex = 0;
+    }
+
+    Vector3f a(peaks[aIndex].col, PIGUN_RES_Y-peaks[aIndex].row, 0);
+    Vector3f b(peaks[bIndex].col, PIGUN_RES_Y-peaks[bIndex].row, 0);
+
+    Vector3f khat(0, 0, -1);
+    Vector3f ihat = b-a;
+    Vector3f jhat = ihat.cross(khat);
+
+    return make_pair(ihat, jhat);
+}
+
+Vector3f toBuffer(Vector3f naturalVector)
+{
+    Vector3f bufferVector(naturalVector.x(), -(naturalVector.y()-PIGUN_RES_Y), 0);
+    return bufferVector;
+}
+
+// Calculate the coordinate system origin
+Vector3f getOrigin()
+{
+    // Decide which light is which
+    float x0 = peaks[0].col;
+    float x1 = peaks[1].col;
+    int aIndex, bIndex;
+    if (x0 <= x1) {
+        aIndex = 0;
+        bIndex = 1;
+    } else {
+        aIndex = 1;
+        bIndex = 0;
+    }
+
+    Vector3f a(peaks[aIndex].col, PIGUN_RES_Y-peaks[aIndex].row, 0);
+    Vector3f b(peaks[bIndex].col, PIGUN_RES_Y-peaks[bIndex].row, 0);
+    Vector3f origin = 0.5*(b+a);
+
+    return origin;
+}
+
 static void preview_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffer) {
     //printf("INFO:preview_buffer_callback buffer->length = %d\n", buffer->length);
 
@@ -299,10 +352,10 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
     }
     loop++;
 
-	if (loop > 0 && loop % 50 == 0) {
-		printf("loop = %d, Framerate = %f fps, buffer->length = %d \n",
-            loop, 1.0 / dt, buffer->length);
-	}
+	//if (loop > 0 && loop % 50 == 0) {
+		//printf("loop = %d, Framerate = %f fps, buffer->length = %d \n",
+            //loop, 1.0 / dt, buffer->length);
+	//}
 	t1 = t2;
 
 	MMAL_BUFFER_HEADER_T *new_buffer;
@@ -334,7 +387,6 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
     // asynchonous task that listens to keyboard input. Then for each loop we
     // check the status of that task and if finished we print the result an
     // spawn a new task.
-    //
     if (fut.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
         auto line = fut.get();
 
@@ -343,25 +395,27 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
         // io-only thread. I'll give an example of that as well.
         fut = std::async(std::launch::async, GetLineFromCin);
 
-        // If l or r was entered, calibrate
+        // If a or s was entered, calibrate
         if (line == "a" || line == "s") {
 
-            // Calculate screen x distance between LEDs
-            float ds = sqrt(pow(peaks[0].col - peaks[1].col, 2) + pow(peaks[0].row - peaks[1].row, 2));
+            // Calculate the frame axis and origin
+            pair<Vector3f, Vector3f> axes = getAxes();
+            Vector3f origin = getOrigin();
+            Vector3f center(PIGUN_RES_X/2, PIGUN_RES_Y/2, 0.0);
 
-            // Calculate image center (gun pointer) location from center of peaks
-            float ledXCenter = (peaks[0].col + peaks[1].col)/2;
-            float ledYCenter = (peaks[0].row + peaks[1].row)/2;
-            float gunDx = PIGUN_RES_X/2 - ledXCenter;
-            float gunDy = PIGUN_RES_Y/2 - ledYCenter;
-
-            // Save relative distance with respect to peak center and separation
+            // Save the calibration location with respect to the origin at the
+            // center of the leds and the axes determined by the leds
+            Vector3f disp = center-origin;
+            float inorm = axes.first.norm();
+            float jnorm = axes.second.norm();
+            float dx = disp.dot(axes.first)/(inorm*inorm);
+            float dy = disp.dot(axes.second)/(jnorm*jnorm);
             if (line == "a") {
-                bottomLeft = make_pair(gunDx/ds, gunDy/ds);
-                cout << "Bottom left calibrated at: " << bottomLeft.first << ", " << bottomLeft.second << endl;
+                bottomLeft = Vector3f(dx, dy, 0);
+                cout << "Bottom left calibrated at: " << bottomLeft.x() << ", " << bottomLeft.y() << endl;
             } else if (line == "s") {
-                topRight = make_pair(gunDx/ds, gunDy/ds);
-                cout << "Top right calibrated at: " << topRight.first << ", " << topRight.second << endl;
+                topRight = Vector3f(dx, dy, 0);
+                cout << "Top right calibrated at: " << topRight.x() << ", " << topRight.y() << endl;
             }
         }
 
@@ -382,95 +436,36 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
 		// Show the peaks with black dots
         preview_new_buffer->data[PIGUN_RES_X*(int)(peaks[0].row)+(int)(peaks[0].col)] = 0;
         preview_new_buffer->data[PIGUN_RES_X*(int)(peaks[1].row)+(int)(peaks[1].col)] = 0;
-        //preview_new_buffer->data[PIGUN_RES_X*(int)(peaks[2].row)+(int)(peaks[2].col)] = 0;
 
-        // Show the screen limits with lines
-        float ds = sqrt(pow(peaks[0].col - peaks[1].col, 2) + pow(peaks[0].row - peaks[1].row, 2));
-        float ledXCenter = (peaks[0].col + peaks[1].col)/2;
-        float ledYCenter = (peaks[0].row + peaks[1].row)/2;
-        //cout << ledXCenter << endl;
-        //cout << ledYCenter << endl;
-        float left = ledXCenter + bottomLeft.first*ds;
-        float right = ledXCenter + topRight.first*ds;
-        float top = ledYCenter + topRight.second*ds;
-        float bottom = ledYCenter + bottomLeft.second*ds;
-        //int leftPeakIdx, rightPeakIdx, bottomPeakIdx, topPeakIdx;
-        //float dy;
-        //if (peaks[0].col <= peaks[1].col) {
-            //leftPeakIdx = 0;
-            //rightPeakIdx = 1;
-        //} else {
-            //leftPeakIdx = 1;
-            //rightPeakIdx = 0;
-        //}
-        //if (peaks[0].row <= peaks[1].row) {
-            //topPeakIdx = 0;
-            //bottomPeakIdx = 1;
-        //} else {
-            //topPeakIdx = 1;
-            //bottomPeakIdx = 0;
-        //}
-        //float leftPeak = peaks[leftPeakIdx].col;
-        //float rightPeak = peaks[rightPeakIdx].col;
-        //float topPeak = peaks[topPeakIdx].row;
-        //float bottomPeak = peaks[bottomPeakIdx].row;
-        //float dx = rightPeak - leftPeak;
-        //if (leftPeakIdx == topPeakIdx) {
-            //dy = bottomPeak - topPeak;
-        //} else {
-            //dy = topPeak - bottomPeak;
-        //}
-        //float roll = 180/PI*atan2(dy, dx);
-        //cout << roll << endl;
-	/*
-        // Decide which peak is which. The decision is based on the correct
-        // handedness of the peaks and the minimum rotation with respect to
-        // up-direction.
-        float minAngle = 180;
-        array<int, 3> abc;
-        vector<int> indices{0,1,2};
-        do {
-            int i = indices[0];
-            int j = indices[1];
-            int k = indices[2];
-            Vector3f a(peaks[i].col, -peaks[i].row, 0);
-            Vector3f b(peaks[j].col, -peaks[j].row, 0);
-            Vector3f c(peaks[k].col, -peaks[k].row, 0);
+        // Calculate the coordinate system for this frame
+        pair<Vector3f, Vector3f> axes = getAxes();
+        Vector3f origin = getOrigin();
+        int ox = (int)round(origin.x());
+        int oy = (int)round(origin.y());
 
-            // Calculate the cross-product to see if the handedness is correct
-            Vector3f ba = a-b;
-            Vector3f bc = c-b;
-            Vector3f cross = ba.cross(bc);
-            float z = cross.z();
+        // Calculate the corner positions
+        Vector3f bl = toBuffer(origin + axes.first*bottomLeft.x()+axes.second*bottomLeft.y());
+        int blX = (int)round(bl.x());
+        int blY = (int)round(bl.y());
+        Vector3f tr = toBuffer(origin + axes.first*topRight.x()+axes.second*topRight.y());
+        int trX = (int)round(tr.x());
+        int trY = (int)round(tr.y());
+        Vector3f tl = toBuffer(origin + axes.first*bottomLeft.x()+axes.second*topRight.y());
+        int tlX = (int)round(tl.x());
+        int tlY = (int)round(tl.y());
+        Vector3f br = toBuffer(origin + axes.first*topRight.x()+axes.second*bottomLeft.y());
+        int brX = (int)round(br.x());
+        int brY = (int)round(br.y());
 
-            // Calculate angle of ba vector to up direction
-            if (z <= 0) {
-                float angle = 90 - abs(atan(ba.y()/ba.x())*180.0/PI);
-                if (angle < minAngle) {
-                    abc = {i, j, k};
-                }
-            }
-        } while (next_permutation(indices.begin(), indices.end()));
+        // Display the corners as bright dots
+        preview_new_buffer->data[PIGUN_RES_X*blY+blX] = 255;
+        preview_new_buffer->data[PIGUN_RES_X*trY+trX] = 255;
+        preview_new_buffer->data[PIGUN_RES_X*tlY+tlX] = 255;
+        preview_new_buffer->data[PIGUN_RES_X*brY+brX] = 255;
 
-        Peak a = peaks[abc[0]];
-        Peak b = peaks[abc[1]];
-        Peak c = peaks[abc[2]];
-        preview_new_buffer->data[PIGUN_RES_X*(int)(a.row+1)+(int)(a.col)] = 0;
-        preview_new_buffer->data[PIGUN_RES_X*(int)(b.row+2)+(int)(b.col)] = 0;
-        preview_new_buffer->data[PIGUN_RES_X*(int)(c.row+3)+(int)(c.col)] = 0;
-	*/
-        preview_new_buffer->data[PIGUN_RES_X*(int)(bottom)+(int)(left)] = 255;
-        preview_new_buffer->data[PIGUN_RES_X*(int)(top)+(int)(right)] = 255;
-        preview_new_buffer->data[PIGUN_RES_X*(int)(ledYCenter)+(int)(ledXCenter)] = 255;
-        preview_new_buffer->data[PIGUN_RES_X*(int)(ledYCenter)+(int)(ledXCenter)] = 255;
-        //preview_new_buffer->data[PIGUN_RES_X*(int)(ledYCenter+bottomLeft.second)+(int)(ledXCenter+bottomLeft.first)] = 255;
-        //preview_new_buffer->data[PIGUN_RES_X*(int)(ledYCenter+topRight.second)+(int)(ledXCenter+topRight.first)] = 255;
-
-		memset(&preview_new_buffer->data[PIGUN_NPX], 0b10101010, PIGUN_NPX/2); // reset U/V channels
-		//memset(&preview_new_buffer->data[PIGUN_NPX+PIGUN_NPX/4], 0b10101010, PIGUN_NPX/4);
+		memset(&preview_new_buffer->data[PIGUN_NPX], 0b10101010, PIGUN_NPX/2); // reset U/V channels to single color
 
         preview_new_buffer->length = buffer->length;
-
 
 		// i guess this is where the magic happens...
 		// the newbuffer is sent to the preview.input port
