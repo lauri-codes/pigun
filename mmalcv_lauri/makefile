@@ -11,4 +11,4 @@ all:
 #	gcc -c $(INC) RaspiCamControl.c
 #	gcc -c $(INC) utils.c main.c
 #	gcc $(LIB) *.o $(LNK)
-	g++ -std=c++11 $(LIB) $(INC) pigun.cpp $(LNK)
+	g++ -std=c++11 $(LIB) $(INC) pigun.cpp pigun-helpers.c $(LNK)
