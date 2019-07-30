@@ -44,6 +44,9 @@
 #include <algorithm>
 #include <stdint.h>
 
+#include <X11/Xlib.h>
+#include <X11/Xutil.h>
+
 using namespace std;
 using namespace Eigen;
 
@@ -54,11 +57,26 @@ string GetLineFromCin() {
 }
 
 Peak lastPeaks[2];
-Peak peaks[3];
+Peak peaks[4];
 vector<bool> CHECKED(PIGUN_RES_X*PIGUN_RES_Y, false);       // Boolean array for storing which pixel locations have been checked in the blob detection
 auto fut = std::async(std::launch::async, GetLineFromCin);  // Asyncronous task for listening to key input
 Vector3f bottomLeft(0,0,0);                                   // Stores the relative position of the screen left edge
 Vector3f topRight(0,0,0);                                     // Stores the relative position of the screen left edge
+
+Display *displayMain;
+Screen *screen;
+//Window root;
+int screenWidth;
+int screenHeight;
+
+void mouseMove(float x, float y)
+{
+    Window root = DefaultRootWindow(displayMain);
+    int screenX = round(x*screenWidth);
+    int screenY = round(y*screenHeight);
+    XWarpPointer(displayMain, None, root, 0, 0, 0, 0, screenX, screenY);
+    XFlush(displayMain);
+}
 
 static int pigun_detect(unsigned char *data) {
 
@@ -205,11 +223,11 @@ static int pigun_detect2(unsigned char *data) {
 
 
     // These parameters have to be tuned to optimize the search
-    const unsigned int nBlobs = 2;        // How many blobs to search
+    const unsigned int nBlobs = 4;        // How many blobs to search
     const unsigned int dx = 4;            // How many pixels are skipped in x direction
     const unsigned int dy = 4;            // How many pixels are skipped in y direction
     const unsigned int minBlobSize = 5;   // Have many pixels does a blob have to have to be considered valid
-    const float threshold = 80;           // The minimum threshold for pixel intensity in a blob
+    const float threshold = 120;           // The minimum threshold for pixel intensity in a blob
 
     const unsigned int nx = ceil(float(PIGUN_RES_X)/float(dx));
     const unsigned int ny = ceil(float(PIGUN_RES_Y)/float(dy));
@@ -309,6 +327,16 @@ Vector3f toBuffer(Vector3f naturalVector)
     return bufferVector;
 }
 
+
+Vector2f toScreen(Vector3f bl, Vector3f tr, Vector3f crosshair)
+{
+    float dx = (crosshair.x()-bl.x() )/( tr.x()-bl.x() );
+    float dy = (crosshair.y()-bl.y() )/( tr.y()-bl.y() );
+    Vector2f bufferVector(dx, dy);
+
+    return bufferVector;
+}
+
 // Calculate the coordinate system origin
 Vector3f getOrigin()
 {
@@ -329,6 +357,21 @@ Vector3f getOrigin()
     Vector3f origin = 0.5*(b+a);
 
     return origin;
+}
+
+Vector3f centerToAxes(pair<Vector3f, Vector3f> axes, Vector3f origin)
+{
+    // Calculate the frame axis and origin
+    Vector3f center(PIGUN_RES_X/2, PIGUN_RES_Y/2, 0.0);
+
+    // Save the calibration location with respect to the origin at the
+    // center of the leds and the axes determined by the leds
+    Vector3f disp = center-origin;
+    float inorm = axes.first.norm();
+    float jnorm = axes.second.norm();
+    float dx = disp.dot(axes.first)/(inorm*inorm);
+    float dy = disp.dot(axes.second)/(jnorm*jnorm);
+    return Vector3f(dx, dy, 0);
 }
 
 static void preview_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffer) {
@@ -366,11 +409,46 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
 	//int pfounds = pigun_detect(buffer->data);  // Filippo
     pigun_detect2(buffer->data);   		         // Lauri
 
+    // Order the peaks: a=top left, b=bottom left, c=top right, d=bottom_right
+    Peak aa, bb, cc, dd;
+    if (peaks[0].col < peaks[1].col) {
+        aa = peaks[0];
+        cc = peaks[1];
+    } else {
+        aa = peaks[1];
+        cc = peaks[0];
+    }
+    if (peaks[2].col < peaks[3].col) {
+        bb = peaks[2];
+        dd = peaks[3];
+    } else {
+        bb = peaks[3];
+        dd = peaks[2];
+    }
+
+    // Calculate transformation matrix from camera to rectangle
+    peaks[0] = aa;
+    peaks[1] = bb;
+    peaks[2] = cc;
+    peaks[3] = dd;
+    float cmat[9];
+    pigun_compute_4corners(peaks, 0, cmat);
+
+    // Get light coordinates in rectangle space
+    float x = cmat[0]*PIGUN_RES_X/2+cmat[1]*PIGUN_RES_Y/2+cmat[2];
+    float y = cmat[3]*PIGUN_RES_X/2+cmat[4]*PIGUN_RES_Y/2+cmat[5];
+    float z = cmat[6]*PIGUN_RES_X/2+cmat[7]*PIGUN_RES_Y/2+cmat[8];
+    x /= z;
+    y /= z;
+    //cout << "x: " << x << " y: " << y << endl;
+
     // Calculate the distance to the lights
-    float fovX = 2*1280.0/3280.0*62.2; // binning*acquired resolution/full resolution*full fov
-    float fovY = 2*720.0/2464.0*48.8;
-    float anglesPerPixelX = fovX/320;
-    float anglesPerPixelY = fovY/180;
+    float fovX = 62.2;
+    float fovY = 48.8;
+    //float fovX = 2*1280.0/3280.0*62.2; // binning*acquired resolution/full resolution*full fov
+    //float fovY = 2*720.0/2464.0*48.8;
+    float anglesPerPixelX = fovX/PIGUN_RES_X;
+    float anglesPerPixelY = fovY/PIGUN_RES_Y;
     Vector3f a(peaks[0].col, -peaks[0].row, 0);
     Vector3f b(peaks[1].col, -peaks[1].row, 0);
     Vector3f dist = a-b;
@@ -401,20 +479,15 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
             // Calculate the frame axis and origin
             pair<Vector3f, Vector3f> axes = getAxes();
             Vector3f origin = getOrigin();
-            Vector3f center(PIGUN_RES_X/2, PIGUN_RES_Y/2, 0.0);
+            Vector3f point = centerToAxes(axes, origin);
 
             // Save the calibration location with respect to the origin at the
             // center of the leds and the axes determined by the leds
-            Vector3f disp = center-origin;
-            float inorm = axes.first.norm();
-            float jnorm = axes.second.norm();
-            float dx = disp.dot(axes.first)/(inorm*inorm);
-            float dy = disp.dot(axes.second)/(jnorm*jnorm);
             if (line == "a") {
-                bottomLeft = Vector3f(dx, dy, 0);
+                bottomLeft = point;
                 cout << "Bottom left calibrated at: " << bottomLeft.x() << ", " << bottomLeft.y() << endl;
             } else if (line == "s") {
-                topRight = Vector3f(dx, dy, 0);
+                topRight = point;
                 cout << "Top right calibrated at: " << topRight.x() << ", " << topRight.y() << endl;
             }
         }
@@ -424,30 +497,44 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
 	//memset(buffer->data, tester, PIGUN_NPX);
 
 	// fetches a free buffer from the pool of the preview.input port
-	preview_new_buffer = mmal_queue_get(preview_input_port_pool->queue);
+    preview_new_buffer = mmal_queue_get(preview_input_port_pool->queue);
 
-	if (preview_new_buffer) {
+    if (preview_new_buffer) {
 
-		memcpy(preview_new_buffer->data, buffer->data, PIGUN_NPX); // copy only Y
+        memcpy(preview_new_buffer->data, buffer->data, PIGUN_NPX); // copy only Y
 
 		// Show crosshair
         preview_new_buffer->data[PIGUN_RES_X*(int)(PIGUN_RES_Y/2.0)+(int)(PIGUN_RES_X/2.0)] = 255;
 
-		// Show the peaks with black dots
-        preview_new_buffer->data[PIGUN_RES_X*(int)(peaks[0].row)+(int)(peaks[0].col)] = 0;
-        preview_new_buffer->data[PIGUN_RES_X*(int)(peaks[1].row)+(int)(peaks[1].col)] = 0;
+        // Show the peaks with black dots
+        preview_new_buffer->data[PIGUN_RES_X*(int)(peaks[0].row)+(int)(peaks[0].col)] = 128;
+        preview_new_buffer->data[PIGUN_RES_X*(int)(peaks[1].row)+(int)(peaks[1].col)] = 128;
+        preview_new_buffer->data[PIGUN_RES_X*(int)(peaks[2].row)+(int)(peaks[2].col)] = 128;
+        preview_new_buffer->data[PIGUN_RES_X*(int)(peaks[3].row)+(int)(peaks[3].col)] = 128;
+
 
         // Calculate the coordinate system for this frame
         pair<Vector3f, Vector3f> axes = getAxes();
         Vector3f origin = getOrigin();
         int ox = (int)round(origin.x());
         int oy = (int)round(origin.y());
+        Vector3f blNatural = axes.first*bottomLeft.x()+axes.second*bottomLeft.y();
+        Vector3f trNatural = axes.first*topRight.x()+axes.second*topRight.y();
+
+        // Calculate the relative position of the crosshair inside the
+        // rectangle, move mouse to that position
+        //Vector3f crosshair = centerToAxes(axes, origin);
+        //Vector2f lm = toScreen(bottomLeft, topRight, crosshair);
+        //cout << crosshair.x() << " " << crosshair.y() << endl;
+        //cout << lm.x() << " " << lm.y() << endl;
+        //mouseMove(lm.x(), lm.y());
+        mouseMove(x, y);
 
         // Calculate the corner positions
-        Vector3f bl = toBuffer(origin + axes.first*bottomLeft.x()+axes.second*bottomLeft.y());
+        Vector3f bl = toBuffer(origin + blNatural);
         int blX = (int)round(bl.x());
         int blY = (int)round(bl.y());
-        Vector3f tr = toBuffer(origin + axes.first*topRight.x()+axes.second*topRight.y());
+        Vector3f tr = toBuffer(origin + trNatural);
         int trX = (int)round(tr.x());
         int trY = (int)round(tr.y());
         Vector3f tl = toBuffer(origin + axes.first*bottomLeft.x()+axes.second*topRight.y());
@@ -463,15 +550,24 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
         preview_new_buffer->data[PIGUN_RES_X*tlY+tlX] = 255;
         preview_new_buffer->data[PIGUN_RES_X*brY+brX] = 255;
 
-		memset(&preview_new_buffer->data[PIGUN_NPX], 0b10101010, PIGUN_NPX/2); // reset U/V channels to single color
+        memset(&preview_new_buffer->data[PIGUN_NPX], 128, PIGUN_NPX/2); // reset U/V channels to single color
+
+        // Recolor corner points: a=green
+        preview_new_buffer->data[PIGUN_NPX + PIGUN_RES_X/2*(int)(peaks[0].row/2)+(int)(peaks[0].col/2)] = 0;
+        // Recolor corner points: b=blue
+        preview_new_buffer->data[PIGUN_NPX + PIGUN_RES_X/2*(int)(peaks[1].row/2)+(int)(peaks[1].col/2)] = 255;
+        // Recolor corner points: c=turquoise
+        preview_new_buffer->data[5*PIGUN_NPX/4 + PIGUN_RES_X/2*(int)(peaks[2].row/2)+(int)(peaks[2].col/2)] = 0;
+        // Recolor corner points: d=pink
+        preview_new_buffer->data[5*PIGUN_NPX/4 + PIGUN_RES_X/2*(int)(peaks[3].row/2)+(int)(peaks[3].col/2)] = 255;
 
         preview_new_buffer->length = buffer->length;
 
 		// i guess this is where the magic happens...
 		// the newbuffer is sent to the preview.input port
-		if (mmal_port_send_buffer(preview_input_port, preview_new_buffer) != MMAL_SUCCESS) {
-		printf("ERROR: Unable to send buffer \n");
-		}
+        if (mmal_port_send_buffer(preview_input_port, preview_new_buffer) != MMAL_SUCCESS) {
+            printf("ERROR: Unable to send buffer \n");
+        }
 	} else {
 		printf("ERROR: mmal_queue_get (%d)\n", preview_new_buffer);
 	}
@@ -498,6 +594,17 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
 }
 
 int main(int argc, char** argv) {
+
+    // Open mouse connection
+    displayMain = XOpenDisplay(NULL);
+    if (displayMain == NULL)
+    {
+        fprintf(stderr, "Could not open main display\n");
+        exit(EXIT_FAILURE);
+    }
+    screen = DefaultScreenOfDisplay(displayMain);
+    screenWidth = screen->width;
+    screenHeight = screen->height;
 
     MMAL_COMPONENT_T *camera = 0;
     MMAL_COMPONENT_T *preview = 0;
@@ -620,16 +727,22 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-	// setup the preview input port
+    // setup the preview input port
     preview_input_port = preview->input[0];
+    MMAL_RECT_T previewWindow;
+    previewWindow.x = 0;
+    previewWindow.y = 0;
+    previewWindow.width = PIGUN_RES_X;
+    previewWindow.height = PIGUN_RES_Y;
     {
         MMAL_DISPLAYREGION_T param;
         param.hdr.id = MMAL_PARAMETER_DISPLAYREGION;
         param.hdr.size = sizeof (MMAL_DISPLAYREGION_T);
         param.set = MMAL_DISPLAY_SET_LAYER;
         param.layer = 0;
-        //param.set |= MMAL_DISPLAY_SET_FULLSCREEN;
-        param.fullscreen = 1;
+        param.set |= (MMAL_DISPLAY_SET_DEST_RECT | MMAL_DISPLAY_SET_FULLSCREEN);
+        param.fullscreen = 0;
+        param.dest_rect = previewWindow;
         status = mmal_port_parameter_set(preview_input_port, &param.hdr);
         if (status != MMAL_SUCCESS && status != MMAL_ENOSYS) {
             printf("Error: unable to set preview port parameters (%u)\n", status);
@@ -638,7 +751,7 @@ int main(int argc, char** argv) {
     }
     mmal_format_copy(preview_input_port->format, camera_video_port->format);
 
-	// setup the format of preview.input port -> same as camera.video output!
+    // setup the format of preview.input port -> same as camera.video output!
     format = preview_input_port->format;
 
     format->encoding = MMAL_ENCODING_I420;
@@ -650,7 +763,7 @@ int main(int argc, char** argv) {
     format->es->video.crop.y = 0;
     format->es->video.crop.width = PIGUN_RES_X;
     format->es->video.crop.height = PIGUN_RES_Y;
-    format->es->video.frame_rate.num = 90;
+    format->es->video.frame_rate.num = PIGUN_FPS;
     format->es->video.frame_rate.den = 1;
 
     preview_input_port->buffer_size = camera_video_port->buffer_size_recommended;
@@ -661,7 +774,7 @@ int main(int argc, char** argv) {
 
     status = mmal_port_format_commit(preview_input_port);
 
-	// create a buffer pool for the preview.input port
+    // create a buffer pool for the preview.input port
     preview_input_port_pool = (MMAL_POOL_T *)mmal_port_pool_create(preview_input_port, preview_input_port->buffer_num, preview_input_port->buffer_size);
 
     preview_input_port->userdata = (struct MMAL_PORT_USERDATA_T *) preview_input_port_pool;
@@ -716,5 +829,6 @@ int main(int argc, char** argv) {
 
     while (1);
 
+    XCloseDisplay(displayMain);
     return 0;
 }
