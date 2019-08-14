@@ -717,9 +717,6 @@ int main(int argc, char** argv) {
     // not sure if this is needed - seems to work without as well
     status = mmal_component_enable(camera);
 
-    // disable exposure mode
-    pigun_camera_exposuremode(camera, 0);
-
     // create a renderer component to show the video on screen
     status = mmal_component_create(MMAL_COMPONENT_DEFAULT_VIDEO_RENDERER, &preview);
     if (status != MMAL_SUCCESS) {
@@ -800,8 +797,21 @@ int main(int argc, char** argv) {
     }
      */
 
+
+    // Disable exposure mode
+    pigun_camera_exposuremode(camera, 0);
+
+    // Set gains
+    if (argc == 3) {
+        int analog_gain = atoi(argv[1]);
+        int digital_gain = atoi(argv[2]);
+        pigun_camera_gains(camera, analog_gain, digital_gain);
+    }
+    // Setup automatic white balance
     pigun_camera_awb(camera, 0);
     pigun_camera_awb_gains(camera, 1, 1);
+
+    // Setup blur
     pigun_camera_blur(camera, 1);
 
      // this sends the buffers to the camera.video output port so it can start filling them frame data
