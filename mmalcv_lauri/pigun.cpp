@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <sys/time.h>
 #include <Eigen/Dense>
+#include <wiringPi.h>
 #include "bcm_host.h"
 #include "interface/vcos/vcos.h"
 
@@ -395,10 +396,10 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
     }
     loop++;
 
-	//if (loop > 0 && loop % 50 == 0) {
-		//printf("loop = %d, Framerate = %f fps, buffer->length = %d \n",
-            //loop, 1.0 / dt, buffer->length);
-	//}
+	if (loop > 0 && loop % 50 == 0) {
+		printf("loop = %d, Framerate = %f fps, buffer->length = %d \n",
+        	loop, 1.0 / dt, buffer->length);
+	}
 	t1 = t2;
 
 	MMAL_BUFFER_HEADER_T *new_buffer;
@@ -493,6 +494,11 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
         }
 
     }
+
+	// read the GPIO 4
+	if(digitalRead(4) == HIGH) {
+		cout << "GPIO4!" << endl;
+	}
 
 	//memset(buffer->data, tester, PIGUN_NPX);
 
@@ -813,6 +819,10 @@ int main(int argc, char** argv) {
 
     // Setup blur
     pigun_camera_blur(camera, 1);
+
+	// setup the GPIO
+	wiringPiSetup();
+	pinMode(4, INPUT);
 
      // this sends the buffers to the camera.video output port so it can start filling them frame data
     if (1) {
