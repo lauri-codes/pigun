@@ -169,7 +169,7 @@ MMAL_PORT_T *preview_input_port = NULL;
  * working on the given data array. Returns a list of indices found to belong
  * to the blob surrounding the starting point.
  */
-vector<pair<int, int> > bfs(int idx, unsigned char *data, const float &threshold) {
+vector<pair<int, int> > bfs(int idx, unsigned char *data, const float &threshold, const unsigned int &maxBlobSize) {
     vector<pair<int, int> > indices;
     queue<int> toSearch;
 
@@ -178,8 +178,8 @@ vector<pair<int, int> > bfs(int idx, unsigned char *data, const float &threshold
     indices.push_back(make_pair(idx, data[idx]));
     CHECKED[idx] = true;
 
-    // Do search until stack is emptied
-    while(!toSearch.empty()) {
+    // Do search until stack is emptied or maximum size is reached
+    while(!toSearch.empty() && indices.size() < maxBlobSize) {
         int current = toSearch.front();
 
         // Check top, bottom, left, right. Add to stack if above treshold
@@ -224,11 +224,12 @@ static int pigun_detect2(unsigned char *data) {
 
 
     // These parameters have to be tuned to optimize the search
-    const unsigned int nBlobs = 4;        // How many blobs to search
+    const unsigned int nBlobs = 2;        // How many blobs to search
     const unsigned int dx = 4;            // How many pixels are skipped in x direction
     const unsigned int dy = 4;            // How many pixels are skipped in y direction
     const unsigned int minBlobSize = 5;   // Have many pixels does a blob have to have to be considered valid
-    const float threshold = 120;           // The minimum threshold for pixel intensity in a blob
+    const unsigned int maxBlobSize = 1000;// Maximum numer of pixels for a blob
+    const float threshold = 120;          // The minimum threshold for pixel intensity in a blob
 
     const unsigned int nx = ceil(float(PIGUN_RES_X)/float(dx));
     const unsigned int ny = ceil(float(PIGUN_RES_Y)/float(dy));
@@ -244,7 +245,7 @@ static int pigun_detect2(unsigned char *data) {
             int idx = j*dy*PIGUN_RES_X + i*dx;
             int value = data[idx];
             if (value >= threshold && !CHECKED[idx]) {
-                vector<pair<int, int> > indices = bfs(idx, data, threshold);
+                vector<pair<int, int> > indices = bfs(idx, data, threshold, maxBlobSize);
                 int blobSize = indices.size();
                 if (blobSize >= minBlobSize) {
                     blobs.push_back(indices);
@@ -396,69 +397,75 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
     }
     loop++;
 
-	if (loop > 0 && loop % 50 == 0) {
-		printf("loop = %d, Framerate = %f fps, buffer->length = %d \n",
-        	loop, 1.0 / dt, buffer->length);
-	}
+	//if (loop > 0 && loop % 50 == 0) {
+	//	printf("loop = %d, Framerate = %f fps, buffer->length = %d \n",
+        //	loop, 1.0 / dt, buffer->length);
+	//}
 	t1 = t2;
 
 	MMAL_BUFFER_HEADER_T *new_buffer;
 	MMAL_BUFFER_HEADER_T *preview_new_buffer;
 	MMAL_POOL_T *pool = (MMAL_POOL_T *) port->userdata;
 
-	// This should find the peaks
-	//int pfounds = pigun_detect(buffer->data);  // Filippo
-    pigun_detect2(buffer->data);   		         // Lauri
+    // Find the peaks. Currently only two peaks are detected by the camera, and
+    // the other two are calculated by assuming direct line of sight that is
+    // perpendicular to screen. Adding a gyroscope to the gun or leds to each
+    // corner of the screen would get rid of this approcimation.
+    pigun_detect2(buffer->data);
 
     // Order the peaks: a=top left, b=bottom left, c=top right, d=bottom_right
     Peak aa, bb, cc, dd;
     if (peaks[0].col < peaks[1].col) {
-        aa = peaks[0];
-        cc = peaks[1];
+        bb = peaks[0];
+        dd = peaks[1];
     } else {
-        aa = peaks[1];
-        cc = peaks[0];
+        bb = peaks[1];
+        dd = peaks[0];
     }
-    if (peaks[2].col < peaks[3].col) {
-        bb = peaks[2];
-        dd = peaks[3];
-    } else {
-        bb = peaks[3];
-        dd = peaks[2];
-    }
+    aa.row = bb.row-30;
+    aa.col = bb.col;
+    cc.row = dd.row-30;
+    cc.col = dd.col;
+    //if (peaks[2].col < peaks[3].col) {
+        //bb = peaks[2];
+        //dd = peaks[3];
+    //} else {
+        //bb = peaks[3];
+        //dd = peaks[2];
+    //}
 
     // Calculate transformation matrix from camera to rectangle
     peaks[0] = aa;
     peaks[1] = bb;
     peaks[2] = cc;
     peaks[3] = dd;
-    float cmat[9];
-    pigun_compute_4corners(peaks, 0, cmat);
+    //float cmat[9];
+    //pigun_compute_4corners(peaks, 0, cmat);
 
     // Get light coordinates in rectangle space
-    float x = cmat[0]*PIGUN_RES_X/2+cmat[1]*PIGUN_RES_Y/2+cmat[2];
-    float y = cmat[3]*PIGUN_RES_X/2+cmat[4]*PIGUN_RES_Y/2+cmat[5];
-    float z = cmat[6]*PIGUN_RES_X/2+cmat[7]*PIGUN_RES_Y/2+cmat[8];
-    x /= z;
-    y /= z;
+    //float x = cmat[0]*PIGUN_RES_X/2+cmat[1]*PIGUN_RES_Y/2+cmat[2];
+    //float y = cmat[3]*PIGUN_RES_X/2+cmat[4]*PIGUN_RES_Y/2+cmat[5];
+    //float z = cmat[6]*PIGUN_RES_X/2+cmat[7]*PIGUN_RES_Y/2+cmat[8];
+    //x /= z;
+    //y /= z;
     //cout << "x: " << x << " y: " << y << endl;
 
     // Calculate the distance to the lights
-    float fovX = 62.2;
-    float fovY = 48.8;
+    //float fovX = 62.2;
+    //float fovY = 48.8;
     //float fovX = 2*1280.0/3280.0*62.2; // binning*acquired resolution/full resolution*full fov
     //float fovY = 2*720.0/2464.0*48.8;
-    float anglesPerPixelX = fovX/PIGUN_RES_X;
-    float anglesPerPixelY = fovY/PIGUN_RES_Y;
-    Vector3f a(peaks[0].col, -peaks[0].row, 0);
-    Vector3f b(peaks[1].col, -peaks[1].row, 0);
-    Vector3f dist = a-b;
-    dist.x() *= anglesPerPixelX;
-    dist.y() *= anglesPerPixelY;
-    float abAngle = dist.norm();
-    float aI = peaks[0].maxI;
-    float bI = peaks[1].maxI;
-    float abRatio = aI/bI;
+    //float anglesPerPixelX = fovX/PIGUN_RES_X;
+    //float anglesPerPixelY = fovY/PIGUN_RES_Y;
+    //Vector3f a(peaks[0].col, -peaks[0].row, 0);
+    //Vector3f b(peaks[1].col, -peaks[1].row, 0);
+    //Vector3f dist = a-b;
+    //dist.x() *= anglesPerPixelX;
+    //dist.y() *= anglesPerPixelY;
+    //float abAngle = dist.norm();
+    //float aI = peaks[0].maxI;
+    //float bI = peaks[1].maxI;
+    //float abRatio = aI/bI;
     //cout << "a-b angle: " << abAngle << ", a-b intensity ratio: " << abRatio << ", a intensity: "  << aI << endl;
     //cout << "b intensity: " << bI << ", a intensity: " << aI << endl;
 
@@ -496,11 +503,9 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
     }
 
 	// read the GPIO 4
-	if(digitalRead(4) == HIGH) {
-		cout << "GPIO4!" << endl;
-	}
-
-	//memset(buffer->data, tester, PIGUN_NPX);
+	//if(digitalRead(4) == HIGH) {
+		//cout << "GPIO4!" << endl;
+	//}
 
 	// fetches a free buffer from the pool of the preview.input port
     preview_new_buffer = mmal_queue_get(preview_input_port_pool->queue);
@@ -515,9 +520,8 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
         // Show the peaks with black dots
         preview_new_buffer->data[PIGUN_RES_X*(int)(peaks[0].row)+(int)(peaks[0].col)] = 128;
         preview_new_buffer->data[PIGUN_RES_X*(int)(peaks[1].row)+(int)(peaks[1].col)] = 128;
-        preview_new_buffer->data[PIGUN_RES_X*(int)(peaks[2].row)+(int)(peaks[2].col)] = 128;
-        preview_new_buffer->data[PIGUN_RES_X*(int)(peaks[3].row)+(int)(peaks[3].col)] = 128;
-
+        //preview_new_buffer->data[PIGUN_RES_X*(int)(peaks[2].row)+(int)(peaks[2].col)] = 128;
+        //preview_new_buffer->data[PIGUN_RES_X*(int)(peaks[3].row)+(int)(peaks[3].col)] = 128;
 
         // Calculate the coordinate system for this frame
         pair<Vector3f, Vector3f> axes = getAxes();
@@ -529,12 +533,9 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
 
         // Calculate the relative position of the crosshair inside the
         // rectangle, move mouse to that position
-        //Vector3f crosshair = centerToAxes(axes, origin);
-        //Vector2f lm = toScreen(bottomLeft, topRight, crosshair);
-        //cout << crosshair.x() << " " << crosshair.y() << endl;
-        //cout << lm.x() << " " << lm.y() << endl;
-        //mouseMove(lm.x(), lm.y());
-        mouseMove(x, y);
+        Vector3f crosshair = centerToAxes(axes, origin);
+        Vector2f lm = toScreen(bottomLeft, topRight, crosshair);
+        mouseMove(lm.y(), 1-lm.x());
 
         // Calculate the corner positions
         Vector3f bl = toBuffer(origin + blNatural);
@@ -569,7 +570,7 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
 
         preview_new_buffer->length = buffer->length;
 
-		// i guess this is where the magic happens...
+		// I guess this is where the magic happens...
 		// the newbuffer is sent to the preview.input port
         if (mmal_port_send_buffer(preview_input_port, preview_new_buffer) != MMAL_SUCCESS) {
             printf("ERROR: Unable to send buffer \n");
