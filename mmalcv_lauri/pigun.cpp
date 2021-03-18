@@ -228,8 +228,8 @@ static int pigun_detect2(unsigned char *data) {
     const unsigned int dx = 4;            // How many pixels are skipped in x direction
     const unsigned int dy = 4;            // How many pixels are skipped in y direction
     const unsigned int minBlobSize = 5;   // Have many pixels does a blob have to have to be considered valid
-    const unsigned int maxBlobSize = 1000;// Maximum numer of pixels for a blob
-    const float threshold = 120;          // The minimum threshold for pixel intensity in a blob
+    const unsigned int maxBlobSize = 500; // Maximum numer of pixels for a blob
+    const float threshold = 130;          // The minimum threshold for pixel intensity in a blob
 
     const unsigned int nx = ceil(float(PIGUN_RES_X)/float(dx));
     const unsigned int ny = ceil(float(PIGUN_RES_Y)/float(dy));
