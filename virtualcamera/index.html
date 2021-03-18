@@ -5,7 +5,12 @@
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
 		<style>
-			body {
+			a {color: #0080ff; }
+			b { color: lightgreen }
+
+			html, body {
+				width: 100%;
+				height: 100%;
 				color: #808080;
 				font-family:Monospace;
 				font-size:13px;
@@ -14,13 +19,32 @@
 				margin: 0px;
 				overflow: hidden;
 			}
-			#info {
+			#blocker {
 				position: absolute;
-				top: 5px; width: 100%;
-				z-index: 100;
+				width: 100%;
+				height: 100%;
+				background-color: rgba(0,0,0,0.5);
 			}
-			a {color: #0080ff; }
-			b { color: lightgreen }
+			#instructions {
+				width: 100%;
+				height: 100%;
+				display: -webkit-box;
+				display: -moz-box;
+				display: box;
+				-webkit-box-orient: horizontal;
+				-moz-box-orient: horizontal;
+				box-orient: horizontal;
+				-webkit-box-pack: center;
+				-moz-box-pack: center;
+				box-pack: center;
+				-webkit-box-align: center;
+				-moz-box-align: center;
+				box-align: center;
+				color: #ffffff;
+				text-align: center;
+				cursor: pointer;
+			}
+
 		</style>
 	</head>
 	<body>
@@ -29,6 +53,15 @@
 		</div>
 
 		<script src="./node_modules/three/build/three.js"></script>
+        <script src="./PointerLockControls.js"></script>
+
+		<div id="blocker">
+			<div id="instructions">
+				<span style="font-size:40px">Click to play</span>
+				<br />
+				(W, A, S, D = Move, SPACE = Jump, MOUSE = Look around)
+			</div>
+		</div>
 
 		<script>
 			var SCREEN_WIDTH = window.innerWidth;
@@ -36,70 +69,203 @@
 			var aspect = SCREEN_WIDTH / SCREEN_HEIGHT;
 			var container, stats;
 			var camera, scene, renderer;
-			var cameraRig, activeCamera, activeHelper;
 			var cameraPerspective;
 			var cameraPerspectiveHelper;
 			var frustumSize = 600;
 
-            var fovX = 62.2;
+            // For movement and looking
+            var controls, raycaster;
+			var moveForward = false;
+			var moveBackward = false;
+			var moveLeft = false;
+			var moveRight = false;
+			var moveUp = false;
+			var moveDown = false;
+			var canJump = false;
+			var prevTime = performance.now();
+			var velocity = new THREE.Vector3();
+			var direction = new THREE.Vector3();
+			var blue;
+            var objects = [];
+            var virtualPlane;
+
+            <!--var fovX = 62.2;-->
             var fovY = 48.8;
-            var near = 150;
-            var far = 1000
+            var fovX = fovY;
+            var near = 10;
+            var far = 200
             var camAspect = fovX/fovY;
+            var pointDist = 50*Math.tan(Math.PI/180.0*fovY/2.0);
+            var pointZ = -50;
+            var pointOPos = new THREE.Vector3(0, 0, pointZ);
+            var pointUPos = new THREE.Vector3(0, pointDist, pointZ);
+            var pointRPos = new THREE.Vector3(pointDist, 0, pointZ);
+            let otor = pointRPos.clone().sub(pointOPos);
+            let otou = pointUPos.clone().sub(pointOPos);
+            let pointURPos = pointOPos.clone();
+            pointURPos.add(otor);
+            pointURPos.add(otou);
+
 			init();
 
             // Show once with render, or update with animate
-            render();
-            <!--animate();-->
+            <!--render();-->
+            animate();
 
 			function init() {
-				container = document.createElement( 'div' );
-				document.body.appendChild( container );
 				scene = new THREE.Scene();
-                <!--scene.background = new THREE.Color( 0xffffff );-->
 
                 // This is the outsider camera filming the whole scene
 				camera = new THREE.PerspectiveCamera( 50, 0.5 * aspect, 1, 10000 );
-				camera.position.z = 2500;
+				camera.position.z = 500;
 
 				// This is the actual camera
-				cameraPerspective = new THREE.PerspectiveCamera( fovX, camAspect, near, far );
+				cameraPerspective = new THREE.PerspectiveCamera( fovY, camAspect, near, far );
 
                 // Set camera position
                 cameraPerspective.position.set(0, 0, 0);
 
                 // Set camera rotation
                 cameraPerspective.rotation.x = 0.0*Math.PI;
-                cameraPerspective.rotation.y = 0.00*Math.PI;
+                cameraPerspective.rotation.y = 0.0*Math.PI;
                 cameraPerspective.rotation.z = 0.0*Math.PI;
 
 				cameraPerspectiveHelper = new THREE.CameraHelper( cameraPerspective );
 				scene.add( cameraPerspectiveHelper );
 				activeCamera = cameraPerspective;
-				activeHelper = cameraPerspectiveHelper;
+
+                // Add controls for camera
+                controls = new THREE.PointerLockControls(cameraPerspective);
+                var blocker = document.getElementById( 'blocker' );
+				var instructions = document.getElementById( 'instructions' );
+				instructions.addEventListener( 'click', function () {
+					controls.lock();
+				}, false );
+                controls.addEventListener( 'lock', function () {
+                    instructions.style.display = 'none';
+                    blocker.style.display = 'none';
+                } );
+                controls.addEventListener( 'unlock', function () {
+                    blocker.style.display = 'block';
+                    instructions.style.display = '';
+                } );
+                scene.add( controls.getObject() );
+				var onKeyDown = function ( event ) {
+					switch ( event.keyCode ) {
+						case 38: // up
+						case 87: // w
+							moveForward = true;
+							break;
+						case 37: // left
+						case 65: // a
+							moveLeft = true;
+							break;
+						case 40: // down
+						case 83: // s
+							moveBackward = true;
+							break;
+						case 39: // right
+						case 68: // d
+							moveRight = true;
+							break;
+						case 32: // space
+							moveUp = true;
+							break;
+						case 16: // shift
+							moveDown = true;
+							break;
+					}
+				};
+				var onKeyUp = function ( event ) {
+					switch ( event.keyCode ) {
+						case 38: // up
+						case 87: // w
+							moveForward = false;
+							break;
+						case 37: // left
+						case 65: // a
+							moveLeft = false;
+							break;
+						case 40: // down
+						case 83: // s
+							moveBackward = false;
+							break;
+						case 39: // right
+						case 68: // d
+							moveRight = false;
+							break;
+						case 32: // space
+							moveUp = false;
+							break;
+						case 16: // shift
+							moveDown = false;
+							break;
+					}
+				};
+				document.addEventListener( 'keydown', onKeyDown, false );
+				document.addEventListener( 'keyup', onKeyUp, false );
+                raycaster = new THREE.Raycaster( new THREE.Vector3(), new THREE.Vector3( 0, - 1, 0 ), 0, 20 );
+
+                controls.getObject().translateY(-10);
 
                 // Add points representing lights
                 var dotGeometry = new THREE.Geometry();
-                var pointDist = 100;
-                var pointZ = -500;
-                dotGeometry.vertices.push(new THREE.Vector3( 0, 0, pointZ));
-                dotGeometry.vertices.push(new THREE.Vector3( pointDist, 0, pointZ));
-                dotGeometry.vertices.push(new THREE.Vector3( 0, pointDist, pointZ));
-                var dotMaterial = new THREE.PointsMaterial( { size: 20, sizeAttenuation: true } );
+                dotGeometry.vertices.push(pointOPos);
+                dotGeometry.vertices.push(pointUPos);
+                dotGeometry.vertices.push(pointRPos);
+                dotGeometry.vertices.push(pointURPos);
+                var dotMaterial = new THREE.PointsMaterial( { size: 1, sizeAttenuation: true } );
                 var dot = new THREE.Points( dotGeometry, dotMaterial );
                 scene.add( dot );
-
-                //
 
 				// Setup renderer
 				renderer = new THREE.WebGLRenderer( { antialias: true } );
 				renderer.setPixelRatio( window.devicePixelRatio );
 				renderer.setSize( SCREEN_WIDTH, SCREEN_HEIGHT );
-				container.appendChild( renderer.domElement );
+                document.body.appendChild( renderer.domElement );
                 renderer.autoClear = false;
+
+                // Test camera space to world space
+
+                // Put green dot in world origin
+                scene.updateMatrixWorld();
+                let greenGeom = new THREE.Geometry();
+                let worldOrigin = new THREE.Vector3(0, 0, 0);
+                greenGeom.vertices.push(worldOrigin);
+                let greenMaterial = new THREE.PointsMaterial( { size: 2, sizeAttenuation: true, color:0x00ff00} );
+                let green = new THREE.Points( greenGeom, greenMaterial );
+                scene.add( green );
+
+                // Put red dot in camera space origin
+                // Add points representing lights
+                let redGeom = new THREE.Geometry();
+                let redCameraPos = new THREE.Vector3(0, 0, 0);
+                let redWorldPos = cameraPerspective.localToWorld(redCameraPos);
+                redGeom.vertices.push(redWorldPos);
+                let redMaterial = new THREE.PointsMaterial( { size: 1, sizeAttenuation: true, color:0xff0000} );
+                let red = new THREE.Points( redGeom, redMaterial );
+                scene.add( red );
+
+                // Put blue dot for dot at screen
+                let blueGeom = new THREE.Geometry();
+                let blueCameraPos = new THREE.Vector3(0, 0, 0);
+                let blueWorldPos = cameraPerspective.localToWorld(blueCameraPos);
+                blueGeom.vertices.push(blueWorldPos);
+                let blueMaterial = new THREE.PointsMaterial( { size: 1, sizeAttenuation: true, color:0x0000ff} );
+                blue = new THREE.Points( blueGeom, blueMaterial );
+                scene.add( blue );
 
 				//
 				window.addEventListener( 'resize', onWindowResize, false );
+
+                // Ambient light
+                var light = new THREE.AmbientLight( 0x404040, 10); // soft white light
+                scene.add( light );
+
+                // White directional light at half intensity shining from the top.
+                var directionalLight = new THREE.DirectionalLight( 0xffffff, 10 );
+                directionalLight.position.set(0, 100, 0);
+                scene.add( directionalLight );
 			}
 			//
 			function onWindowResize() {
@@ -115,30 +281,156 @@
 			//
 			function animate() {
 				requestAnimationFrame( animate );
+                if ( controls.isLocked === true ) {
+					raycaster.ray.origin.copy( controls.getObject().position );
+					raycaster.ray.origin.y -= 10;
+					var intersections = raycaster.intersectObjects( objects );
+					var onObject = intersections.length > 0;
+					var time = performance.now();
+					var delta = ( time - prevTime ) / 1000;
+					velocity.x -= velocity.x * 5.0 * delta;
+					velocity.z -= velocity.z * 5.0 * delta;
+					velocity.y -= velocity.y * 5.0 * delta;
+					direction.z = Number( moveForward ) - Number( moveBackward );
+					direction.x = Number( moveLeft ) - Number( moveRight );
+					direction.y = Number( moveDown ) - Number( moveUp );
+					direction.normalize(); // this ensures consistent movements in all directions
+					if ( moveForward || moveBackward ) velocity.z -= direction.z * 400.0 * delta;
+					if ( moveLeft || moveRight ) velocity.x -= direction.x * 400.0 * delta;
+					if ( moveUp || moveDown ) velocity.y -= direction.y * 400.0 * delta;
+					controls.getObject().translateX( velocity.x * delta );
+					controls.getObject().translateY( velocity.y * delta );
+					controls.getObject().translateZ( velocity.z * delta );
+					prevTime = time;
+				}
+
+                <!--scene.updateMatrixWorld();-->
+
+				// Get location of dots in camera space
+                cameraPerspective.matrixWorldInverse.getInverse( cameraPerspective.matrixWorld );
+                let oCameraSpace = pointOPos.clone().applyMatrix4( cameraPerspective.matrixWorldInverse );
+                let uCameraSpace = pointUPos.clone().applyMatrix4( cameraPerspective.matrixWorldInverse );
+                let rCameraSpace = pointRPos.clone().applyMatrix4( cameraPerspective.matrixWorldInverse );
+                <!--console.log(oCameraSpace);-->
+                <!--console.log(uCameraSpace);-->
+                <!--console.log(rCameraSpace);-->
+
+                // Get the locations of the dots on the screen space
+                cameraPerspective.updateProjectionMatrix();
+                let camProjMatrix = cameraPerspective.projectionMatrix;
+                let uScreenPos = uCameraSpace.clone().applyMatrix4(camProjMatrix);
+                let rScreenPos = rCameraSpace.clone().applyMatrix4(camProjMatrix);
+                let oScreenPos = oCameraSpace.clone().applyMatrix4(camProjMatrix);
+                <!--console.log(rScreenPos);-->
+                <!--console.log(uScreenPos);-->
+
+                // Transform dot locations on screen space to locations on an arc
+                let pRP = rScreenPos.x;
+                let pOP = oScreenPos.x;
+                let phiAngleR = Math.atan(pRP*Math.tan(Math.PI/180.0*fovX/2));
+                let phiAngleO = Math.atan(pOP*Math.tan(Math.PI/180.0*fovX/2));
+                let tUP = uScreenPos.y;
+                let tOP = oScreenPos.y;
+                let thetaAngleU = Math.atan(tUP*Math.tan(Math.PI/180.0*fovY/2));
+                let thetaAngleO = Math.atan(tOP*Math.tan(Math.PI/180.0*fovY/2));
+
+                // Calculate angles
+                let phi = Math.abs(phiAngleR - phiAngleO);
+                let theta = Math.abs(thetaAngleU - thetaAngleO);
+
+                // Calculate ratio of light distances in x-plane
+                let Rx = Math.abs(oCameraSpace.length()/rCameraSpace.length());
+                let Ry = Math.abs(oCameraSpace.length()/uCameraSpace.length());
+
+                let angleratio = phi/theta;
+                let distratio = Rx/Ry;
+                console.log(angleratio, distratio);
+
+                // Calculate distances based on relative intensity and angle
+                let c = pointDist/Math.sqrt(1+Math.pow(Ry, 2)-2*Ry*Math.cos(theta));
+                let a2 = Ry*c;
+                let a = Rx*pointDist/Math.sqrt(1+Math.pow(Rx, 2)-2*Rx*Math.cos(phi));
+                let b = pointDist/Math.sqrt(1+Math.pow(Rx, 2)-2*Rx*Math.cos(phi));
+                <!--console.log(phi, theta, Rx, Ry);-->
+                <!--console.log(a);-->
+
+                // True distances
+                let od = oCameraSpace.length();
+                let rd = rCameraSpace.length();
+
+                // Calculate the unit vectors for the three lights based on
+                // camera projection. Position the virtual screen according to them
+                let camProjMatrixInv = new THREE.Matrix4();  // For some reason cameraPerspective.projectionMatrixInverse in undefined, so we calculate it manually here
+                camProjMatrixInv.getInverse(camProjMatrix);
+
+                // Point a
+                let oCamera = oScreenPos.clone();
+                oCamera = oCamera.clone().applyMatrix4(camProjMatrixInv);
+                oCamera.normalize()
+                oCamera.multiplyScalar(a);
+                let aPos = cameraPerspective.localToWorld(oCamera);
+
+                // Point b
+                let rCamera = rScreenPos.clone();
+                rCamera = rCamera.clone().applyMatrix4(camProjMatrixInv);
+                rCamera.normalize()
+                rCamera.multiplyScalar(b);
+                let bPos = cameraPerspective.localToWorld(rCamera);
+
+                // Point c
+                let uCamera = uScreenPos.clone();
+                uCamera = uCamera.clone().applyMatrix4(camProjMatrixInv);
+                uCamera.normalize()
+                uCamera.multiplyScalar(c);
+                let cPos = cameraPerspective.localToWorld(uCamera);
+
+                // Point d
+                let atob = bPos.clone().sub(aPos);
+                let atoc = cPos.clone().sub(aPos);
+                let dPos = aPos.clone();
+                dPos.add(atob);
+                dPos.add(atoc);
+
+                let geom = new THREE.Geometry();
+                geom.vertices.push(aPos);
+                geom.vertices.push(dPos);
+                geom.vertices.push(cPos);
+                geom.vertices.push(bPos);
+                geom.faces.push( new THREE.Face3( 0, 1, 2 ) );
+                geom.faces.push( new THREE.Face3( 0, 1, 3 ) );
+                geom.computeFaceNormals();
+                var material = new THREE.MeshPhongMaterial( {color: 0xffff00, side: THREE.DoubleSide} );
+                material.flatShading = true;
+
+                // Could not figure out how to update mesh, just removing old
+                // one and adding new for now (really bad solution)
+                scene.remove( virtualPlane );
+                virtualPlane = new THREE.Mesh( geom, material );
+                scene.add( virtualPlane );
+
+                //TODO: Fit a true rectangle to the data to get better match
+
 				render();
 			}
 			function render() {
 				var r = Date.now() * 0.0005;
                 cameraPerspective.updateProjectionMatrix();
                 cameraPerspectiveHelper.update();
-                cameraPerspectiveHelper.visible = true;
 
-				renderer.clear();
-				activeHelper.visible = false;
+				<!--renderer.clear();-->
 
-                // Display borders for camera
-                renderer.setScissorTest( true );
-                renderer.setScissor( 0, (SCREEN_HEIGHT - SCREEN_WIDTH / 2 / camAspect) / 2, SCREEN_WIDTH / 2, SCREEN_WIDTH / 2 / camAspect );
-                renderer.setClearColor( 0x333333, 1 ); // border color
-                renderer.clearColor(); // clear color buffer
-                renderer.setScissorTest( false );
+                // Display colored background for camera output of left side
+                <!--renderer.setScissorTest( true );-->
+                <!--renderer.setScissor( 0, (SCREEN_HEIGHT - SCREEN_WIDTH / 2 / camAspect) / 2, SCREEN_WIDTH / 2, SCREEN_WIDTH / 2 / camAspect );-->
+                <!--renderer.setClearColor( 0x333333, 1 ); // border color-->
+                <!--renderer.clearColor(); // clear color buffer-->
+                <!--renderer.setScissorTest( false );-->
 
                 // Render view from camera on left side
 				renderer.setViewport( 0, (SCREEN_HEIGHT - SCREEN_WIDTH / 2 / camAspect) / 2, SCREEN_WIDTH / 2, SCREEN_WIDTH / 2 / camAspect );
 				renderer.render( scene, activeCamera );
 
                 // Render scene on right side
-				activeHelper.visible = true;
 				renderer.setViewport( SCREEN_WIDTH / 2, 0, SCREEN_WIDTH / 2, SCREEN_HEIGHT );
 				renderer.render( scene, camera );
 			}
