@@ -30,7 +30,7 @@
  * THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * Please inquire about commercial licensing options at 
+ * Please inquire about commercial licensing options at
  * contact@bluekitchen-gmbh.com
  *
  */
@@ -57,6 +57,7 @@
 
 #include <pthread.h>
 #include "pigun.h"
+#include "pigun_bt.h"
 
 #include "btstack_config.h"
 
@@ -162,7 +163,7 @@ static int raspi_speed_to_baud(speed_t baud)
             return 3500000;
         case B4000000:
             return 4000000;
-        default: 
+        default:
             return -1;
     }
 }
@@ -195,7 +196,7 @@ static void raspi_get_terminal_params( hci_transport_config_uart_t *tc )
 static void sigint_handler(int param){
     UNUSED(param);
 
-    printf("CTRL-C - SIGINT received, shutting down..\n");   
+    printf("CTRL-C - SIGINT received, shutting down..\n");
     log_info("sigint_handler: shutting down");
 
     // reset anyway
@@ -204,7 +205,7 @@ static void sigint_handler(int param){
     // power down
     hci_power_control(HCI_POWER_OFF);
     hci_close();
-    log_info("Good bye, see you.\n");    
+    log_info("Good bye, see you.\n");
     exit(0);
 }
 
@@ -215,7 +216,7 @@ void hal_led_toggle(void){
 }
 
 static void packet_handler (uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t size){
-    
+
     if (packet_type != HCI_EVENT_PACKET) return;
     bd_addr_t addr;
 
@@ -232,7 +233,7 @@ static void packet_handler (uint8_t packet_type, uint16_t channel, uint8_t *pack
             btstack_tlv_set_instance(tlv_impl, &tlv_context);
 #ifdef ENABLE_CLASSIC
             hci_set_link_key_db(btstack_link_key_db_tlv_get_instance(tlv_impl, &tlv_context));
-#endif    
+#endif
 #ifdef ENABLE_BLE
             le_device_db_tlv_configure(tlv_impl, &tlv_context);
 #endif
@@ -243,9 +244,9 @@ static void packet_handler (uint8_t packet_type, uint16_t channel, uint8_t *pack
                 // terminate, name 248 chars
                 packet[6+248] = 0;
                 printf("Local name: %s\n", &packet[6]);
-                
+
                 btstack_chipset_bcm_set_device_name((const char *)&packet[6]);
-            }        
+            }
             break;
         default:
             break;
@@ -278,13 +279,13 @@ static uart_type_t raspi_get_bluetooth_uart_type(void){
     if( fd == NULL ) return UART_INVALID;
     fscanf( fd, "%20s", deviceUart0 );
     fclose( fd );
-    
+
     uint8_t deviceSerial1[21] = { 0 };
     fd = fopen( "/proc/device-tree/aliases/serial1", "r" );
     if( fd == NULL ) return UART_INVALID;
     fscanf( fd, "%20s", deviceSerial1 );
     fclose( fd );
-  
+
     // test if uart0 is an alias for serial1
     if( strncmp( (const char *) deviceUart0, (const char *) deviceSerial1, 21 ) == 0 ){
         // HW uart
@@ -304,7 +305,7 @@ static uart_type_t raspi_get_bluetooth_uart_type(void){
         }
     } else {
         return UART_SOFTWARE_NO_FLOW;
-    }    
+    }
 }
 
 static void phase2(int status);
@@ -322,10 +323,10 @@ int main(int argc, const char * argv[]){
 
     // setup run loop
     btstack_run_loop_init(btstack_run_loop_posix_get_instance());
-        
+
     // pick serial port and configure uart block driver
     transport_config.device_name = "/dev/serial1";
-    
+
     // derive bd_addr from serial number
     bd_addr_t addr = { 0x11, 0x22, 0x33, 0x44, 0x55, 0x66 };
     raspi_get_bd_addr(addr);
@@ -460,7 +461,7 @@ int main(int argc, const char * argv[]){
 
     // go
     printf("pigun main loop starting...\n");
-    btstack_run_loop_execute();    
+    btstack_run_loop_execute();
     return 0;
 }
 

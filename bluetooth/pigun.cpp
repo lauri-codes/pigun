@@ -602,7 +602,10 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
 
 }
 
-void * test_main(int argc, char** argv) {
+//void * test_main(int argc, char** argv) {
+void * test_main() {
+    //int argc = 0;
+    //char** argv;
 
     // Open mouse connection
     displayMain = XOpenDisplay(NULL);
@@ -632,7 +635,7 @@ void * test_main(int argc, char** argv) {
     if (status != MMAL_SUCCESS) {
         printf("Error: create camera %x\n", status);
         //return -1;
-        return;
+        return NULL;
     }
 
     camera_preview_port = camera->output[MMAL_CAMERA_PREVIEW_PORT];
@@ -679,7 +682,8 @@ void * test_main(int argc, char** argv) {
 
     if (status != MMAL_SUCCESS) {
         printf("Error: camera viewfinder format couldn't be set\n");
-        return -1;
+        //return -1;
+        return NULL;
     }
 	*/
 
@@ -708,8 +712,8 @@ void * test_main(int argc, char** argv) {
     printf(" camera video buffer_num = %d\n", camera_video_port->buffer_num);
     if (status != MMAL_SUCCESS) {
         printf("Error: unable to commit camera video port format (%u)\n", status);
-        return;
         //return -1;
+        return NULL;
     }
 	// *****************************************************************
 
@@ -723,7 +727,7 @@ void * test_main(int argc, char** argv) {
     if (status != MMAL_SUCCESS) {
         printf("Error: unable to enable camera video port (%u)\n", status);
         //return -1;
-        return;
+        return NULL;
     }
 
     // not sure if this is needed - seems to work without as well
@@ -734,7 +738,7 @@ void * test_main(int argc, char** argv) {
     if (status != MMAL_SUCCESS) {
         printf("Error: unable to create preview (%u)\n", status);
         //return -1;
-        return;
+        return NULL;
     }
 
     // setup the preview input port
@@ -757,7 +761,7 @@ void * test_main(int argc, char** argv) {
         if (status != MMAL_SUCCESS && status != MMAL_ENOSYS) {
             printf("Error: unable to set preview port parameters (%u)\n", status);
             //return -1;
-            return;
+            return NULL;
         }
     }
     mmal_format_copy(preview_input_port->format, camera_video_port->format);
@@ -794,7 +798,7 @@ void * test_main(int argc, char** argv) {
     if (status != MMAL_SUCCESS) {
         printf("Error: unable to enable preview input port (%u)\n", status);
         //return -1;
-        return;
+        return NULL;
     }
 
 	// camera.video is not connected directly to preview.input!!!!
@@ -803,12 +807,14 @@ void * test_main(int argc, char** argv) {
     status = mmal_connection_create(&camera_preview_connection, camera_preview_port, preview_input_port, MMAL_CONNECTION_FLAG_TUNNELLING | MMAL_CONNECTION_FLAG_ALLOCATION_ON_INPUT);
     if (status != MMAL_SUCCESS) {
         printf("Error: unable to create connection (%u)\n", status);
-        return -1;
+        //return -1;
+        return NULL;
     }
     status = mmal_connection_enable(camera_preview_connection);
     if (status != MMAL_SUCCESS) {
         printf("Error: unable to enable connection (%u)\n", status);
-        return -1;
+        //return -1;
+        return NULL;
     }
      */
 
@@ -817,11 +823,11 @@ void * test_main(int argc, char** argv) {
     pigun_camera_exposuremode(camera, 0);
 
     // Set gains
-    if (argc == 3) {
-        int analog_gain = atoi(argv[1]);
-        int digital_gain = atoi(argv[2]);
-        pigun_camera_gains(camera, analog_gain, digital_gain);
-    }
+    //if (argc == 3) {
+        //int analog_gain = atoi(argv[1]);
+        //int digital_gain = atoi(argv[2]);
+        //pigun_camera_gains(camera, analog_gain, digital_gain);
+    //}
     // Setup automatic white balance
     pigun_camera_awb(camera, 0);
     pigun_camera_awb_gains(camera, 1, 1);
@@ -860,4 +866,5 @@ void * test_main(int argc, char** argv) {
 
     XCloseDisplay(displayMain);
     //return 0;
+    return NULL;
 }
