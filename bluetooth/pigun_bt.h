@@ -12,6 +12,6 @@ struct pigun_report_t {
 };
 
 extern pigun_report_t global_pigun_report;
-void* pigun_core();
+void* test_main();
 
 #endif

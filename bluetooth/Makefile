@@ -127,7 +127,11 @@ VPATH += ${BTSTACK_ROOT}/platform/embedded
 VPATH += ${BTSTACK_ROOT}/chipset/bcm	
 
 
+INC = -I/opt/vc/include/ -I/home/pi/pigun/eigen-eigen-323c052e1731/ #-I/usr/include/opencv
+LIB = -L/opt/vc/lib/ -L$(SDKSTAGE)/opt/vc/src/hello_pi/libs/ilclient -L$(SDKSTAGE)/opt/vc/src/hello_pi/libs/vgfont -L/usr/X11R6/lib
+LNK = -lX11 -lwiringPi -lbcm_host -lvcos -lvchiq_arm -lpthread -lrt -lmmal -lmmal_core -lmmal_util -lm -ldl #-lopencv_shape -lopencv_stitching -lopencv_superres -lopencv_videostab -lopencv_aruco -lopencv_bgsegm -lopencv_bioinspired -lopencv_ccalib -lopencv_datasets -lopencv_dpm -lopencv_face -lopencv_freetype -lopencv_fuzzy -lopencv_hdf -lopencv_line_descriptor -lopencv_optflow -lopencv_video -lopencv_plot -lopencv_reg -lopencv_saliency -lopencv_stereo -lopencv_structured_light -lopencv_phase_unwrapping -lopencv_rgbd -lopencv_viz -lopencv_surface_matching -lopencv_text -lopencv_ximgproc -lopencv_calib3d -lopencv_features2d -lopencv_flann -lopencv_xobjdetect -lopencv_objdetect -lopencv_ml -lopencv_xphoto -lopencv_highgui -lopencv_videoio -lopencv_imgcodecs -lopencv_photo -lopencv_imgproc -lopencv_core
 
 
 all: ${CORE_OBJ} ${COMMON_OBJ} ${CLASSIC_OBJ} ${SDP_CLIENT} btstack_ring_buffer.o hid_device.o btstack_hid_parser.o main_pigun_core.o main_pigun_hid.o main_pigun.o
-	${CC} $^ ${CFLAGS} ${LDFLAGS} -o pigun.exe
+	g++ -c -std=c++11 $(INC) pigun.cpp pigun-helpers.c
+	${CC} $^ pigun.o pigun-helpers.o ${LIB} ${INC} ${CFLAGS} ${LDFLAGS} -o pigun.exe ${LNK}

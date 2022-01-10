@@ -32,6 +32,7 @@
 #include "interface/mmal/util/mmal_connection.h"
 
 #include "pigun.h"
+#include "pigun_bt.h"
 #include <math.h>
 
 #include <iostream>
@@ -57,6 +58,7 @@ string GetLineFromCin() {
     return line;
 }
 
+pigun_report_t global_pigun_report;
 Peak lastPeaks[2];
 Peak peaks[4];
 vector<bool> CHECKED(PIGUN_RES_X*PIGUN_RES_Y, false);       // Boolean array for storing which pixel locations have been checked in the blob detection
@@ -600,7 +602,7 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
 
 }
 
-int test_main(int argc, char** argv) {
+void * test_main(int argc, char** argv) {
 
     // Open mouse connection
     displayMain = XOpenDisplay(NULL);
@@ -629,7 +631,8 @@ int test_main(int argc, char** argv) {
     status = mmal_component_create(MMAL_COMPONENT_DEFAULT_CAMERA, &camera);
     if (status != MMAL_SUCCESS) {
         printf("Error: create camera %x\n", status);
-        return -1;
+        //return -1;
+        return;
     }
 
     camera_preview_port = camera->output[MMAL_CAMERA_PREVIEW_PORT];
@@ -705,7 +708,8 @@ int test_main(int argc, char** argv) {
     printf(" camera video buffer_num = %d\n", camera_video_port->buffer_num);
     if (status != MMAL_SUCCESS) {
         printf("Error: unable to commit camera video port format (%u)\n", status);
-        return -1;
+        return;
+        //return -1;
     }
 	// *****************************************************************
 
@@ -718,7 +722,8 @@ int test_main(int argc, char** argv) {
     status = mmal_port_enable(camera_video_port, video_buffer_callback);
     if (status != MMAL_SUCCESS) {
         printf("Error: unable to enable camera video port (%u)\n", status);
-        return -1;
+        //return -1;
+        return;
     }
 
     // not sure if this is needed - seems to work without as well
@@ -728,7 +733,8 @@ int test_main(int argc, char** argv) {
     status = mmal_component_create(MMAL_COMPONENT_DEFAULT_VIDEO_RENDERER, &preview);
     if (status != MMAL_SUCCESS) {
         printf("Error: unable to create preview (%u)\n", status);
-        return -1;
+        //return -1;
+        return;
     }
 
     // setup the preview input port
@@ -750,7 +756,8 @@ int test_main(int argc, char** argv) {
         status = mmal_port_parameter_set(preview_input_port, &param.hdr);
         if (status != MMAL_SUCCESS && status != MMAL_ENOSYS) {
             printf("Error: unable to set preview port parameters (%u)\n", status);
-            return -1;
+            //return -1;
+            return;
         }
     }
     mmal_format_copy(preview_input_port->format, camera_video_port->format);
@@ -786,7 +793,8 @@ int test_main(int argc, char** argv) {
     status = mmal_port_enable(preview_input_port, preview_buffer_callback);
     if (status != MMAL_SUCCESS) {
         printf("Error: unable to enable preview input port (%u)\n", status);
-        return -1;
+        //return -1;
+        return;
     }
 
 	// camera.video is not connected directly to preview.input!!!!
@@ -851,5 +859,5 @@ int test_main(int argc, char** argv) {
     while (1);
 
     XCloseDisplay(displayMain);
-    return 0;
+    //return 0;
 }
