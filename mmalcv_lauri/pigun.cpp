@@ -57,12 +57,24 @@ string GetLineFromCin() {
     return line;
 }
 
+struct Loc{
+    int row;
+    int col;
+    float imp;
+
+    Loc(int row, int col, float imp) : row(row), col(col), imp(imp) {}
+    bool operator < (const Loc& str) const {
+        // Descending order
+        return (imp > str.imp);
+    }
+};
+
 Peak lastPeaks[2];
 Peak peaks[4];
 vector<bool> CHECKED(PIGUN_RES_X*PIGUN_RES_Y, false);       // Boolean array for storing which pixel locations have been checked in the blob detection
 auto fut = std::async(std::launch::async, GetLineFromCin);  // Asyncronous task for listening to key input
-Vector3f bottomLeft(0,0,0);                                   // Stores the relative position of the screen left edge
-Vector3f topRight(0,0,0);                                     // Stores the relative position of the screen left edge
+Vector3f bottomLeft(0,0,0);                                 // Stores the relative position of the screen left edge
+Vector3f topRight(0,0,0);                                   // Stores the relative position of the screen left edge
 
 Display *displayMain;
 Screen *screen;
@@ -221,8 +233,6 @@ vector<pair<int, int> > bfs(int idx, unsigned char *data, const float &threshold
 }
 
 static int pigun_detect2(unsigned char *data) {
-
-
     // These parameters have to be tuned to optimize the search
     const unsigned int nBlobs = 2;        // How many blobs to search
     const unsigned int dx = 4;            // How many pixels are skipped in x direction
@@ -253,6 +263,96 @@ static int pigun_detect2(unsigned char *data) {
             }
             if (blobs.size() == nBlobs) {
                 break;
+            }
+        }
+        if (blobs.size() == nBlobs) {
+            break;
+        }
+    }
+
+    // After blobs have been found, calculate their mean coordinate
+    int iBlob = 0;
+    for ( auto &blob : blobs ) {
+        float sumX = 0;
+        float sumY = 0;
+        float sumVal = 0;
+        float maxI = 0;
+        for ( auto &wCoord : blob ) {
+            int idx = wCoord.first;
+            int val = wCoord.second;
+
+            // Save maximum intensity
+            if (val > maxI) {
+                maxI = val;
+            }
+
+            // Transform flattened index to 2D coordinate
+            int x = idx % PIGUN_RES_X;
+            int y = idx / PIGUN_RES_X;
+
+            // Add the weighted coordinate
+            sumX += x*val;
+            sumY += y*val;
+            sumVal += val;
+        }
+        // Calculate intensity weighted mean coordinates of blobs
+        float meanX = float(sumX)/sumVal;
+        float meanY = float(sumY)/sumVal;
+        //cout << "Blob in location: " << meanX << ", " << meanY << " -- " << sumVal << endl;
+
+        // Store in global peaks variable
+        peaks[iBlob].row = meanY;
+        peaks[iBlob].col = meanX;
+        peaks[iBlob].maxI = maxI;
+        ++iBlob;
+    }
+}
+
+static int pigun_detect3(unsigned char *data) {
+    // These parameters have to be tuned to optimize the search
+    const unsigned int nBlobs = 2;        // How many blobs to search
+    const unsigned int dx = 4;            // How many pixels are skipped in x direction
+    const unsigned int dy = 4;            // How many pixels are skipped in y direction
+    const unsigned int minBlobSize = 5;   // Have many pixels does a blob have to have to be considered valid
+    const unsigned int maxBlobSize = 500; // Maximum numer of pixels for a blob
+    const float threshold = 130;          // The minimum threshold for pixel intensity in a blob
+
+    const unsigned int nx = ceil(float(PIGUN_RES_X)/float(dx));
+    const unsigned int ny = ceil(float(PIGUN_RES_Y)/float(dy));
+
+    // Reset the boolean array for marking pixels as checked.
+    std::fill(CHECKED.begin(), CHECKED.end(), false);
+
+    // Initialize importance array with the data from last round
+    vector<Loc> listy;
+    for (int j=0; j < ny; ++j) {
+        for (int i=0; i < nx; ++i) {
+            float importance = 0;
+            int px = i*dx;
+            int py = j*dy;
+            for (int k=0; k < nBlobs; ++k) {
+                int x = peaks[k].col;
+                int y = peaks[k].row;
+                int dx2 = (x - px)*(x - px);
+                int dy2 = (y - py)*(y - py);
+                int sum = dx2 + dy2;
+                importance += 1.0/float(sum);
+            }
+            listy.push_back(Loc(px, py, importance));
+        }
+    }
+
+    // Now lets loop over the coordinates in order of importance
+    vector<vector<pair<int, int> > > blobs;
+    sort(listy.begin(), listy.end());
+    for (auto & loc : listy) {
+        int idx = loc.col*PIGUN_RES_X + loc.row;
+        int value = data[idx];
+        if (value >= threshold && !CHECKED[idx]) {
+            vector<pair<int, int> > indices = bfs(idx, data, threshold, maxBlobSize);
+            int blobSize = indices.size();
+            if (blobSize >= minBlobSize) {
+                blobs.push_back(indices);
             }
         }
         if (blobs.size() == nBlobs) {
