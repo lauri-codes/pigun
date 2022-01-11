@@ -12,6 +12,14 @@ struct pigun_report_t {
 };
 
 extern pigun_report_t global_pigun_report;
-void* test_main();
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+	void* pigun_cycle(void*);
+#ifdef __cplusplus
+}
+#endif
+
 
 #endif

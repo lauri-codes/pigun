@@ -456,8 +456,8 @@ int main(int argc, const char * argv[]){
 
     // run its acquisition loop in a separate thread
     pthread_t gunthread;
-    pthread_create(&gunthread, NULL, test_main, NULL);
-    /*pthread_create(&gunthread, NULL, pigun_core, NULL);*/
+    pthread_create(&gunthread, NULL, pigun_cycle, NULL);
+    //pthread_create(&gunthread, NULL, pigun_core, NULL); // DUMMZ LOOP
 
     // go
     printf("pigun main loop starting...\n");
