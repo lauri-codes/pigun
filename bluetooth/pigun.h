@@ -42,11 +42,14 @@
 #define PIGUN_CAM_X 1640
 #define PIGUN_CAM_Y 1232
 #define PIGUN_FPS 40
-// camera output settings
-#define PIGUN_RES_X 320
-#define PIGUN_RES_Y 180
+
+// camera output settings - these are 1/4th of the camera acquisition
+#define PIGUN_RES_X 410
+#define PIGUN_RES_Y 308
+
 // total number of pixels in the buffer - has to be the product of the previous 2
-#define PIGUN_NPX 57600 // 126280 // 230400
+#define PIGUN_NPX 126280 //57600 // 126280 // 230400
+
 #define PI 3.14159265
 extern MMAL_PORT_T *port_prv_in1;
 
@@ -54,6 +57,15 @@ extern MMAL_PORT_T *port_prv_in1;
 // maximum distance in pixels for peak matching
 #define MAXPEAKDIST 5
 
+
+
+
+// Button definitions - GPIO pins
+
+
+
+
+// Describes a peak in the camera image
 typedef struct Peak Peak;
 struct Peak {
 
@@ -68,8 +80,18 @@ struct Peak {
 };
 
 
+extern Peak* pigun_peaks;
+extern float pigun_aimOffset_x, pigun_aimOffset_y;
 
 
+// these function define how detection and aiming works
+extern int pigun_detect(unsigned char* data);
+extern void pigun_calculate_aim();
+extern void pigun_preview(MMAL_BUFFER_HEADER_T* output, MMAL_BUFFER_HEADER_T* source); // only used if PIGUN_PREVIEW is defined
+
+
+
+/*
 void pigun_camera_setup(MMAL_COMPONENT_T *cam, unsigned int resx, unsigned int resy);
 
 void pigun_port_setformat(MMAL_PORT_T *port, unsigned int resx, unsigned int resy);
@@ -79,13 +101,20 @@ void pigun_port_setformat_buffered(MMAL_PORT_T *port, unsigned int resx, unsigne
 void pigun_video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffer);
 
 void pigun_compute_4corners(Peak* ABCD, float aspectRatio, float* CMatrix);
-// HELPER FUNCTIONS
-int pigun_camera_gains(MMAL_COMPONENT_T *camera, int analog_gain, int digital_gain);
-int pigun_camera_awb(MMAL_COMPONENT_T *camera, int on);
-int pigun_camera_awb_gains(MMAL_COMPONENT_T *camera, float r_gain, float b_gain);
-int pigun_camera_blur(MMAL_COMPONENT_T *camera, int on);
-int pigun_camera_exposuremode(MMAL_COMPONENT_T *camera, int on);
+*/
 
+// HELPER FUNCTIONS
+#ifdef __cplusplus
+extern "C" {
+#endif
+	int pigun_camera_gains(MMAL_COMPONENT_T *camera, int analog_gain, int digital_gain);
+	int pigun_camera_awb(MMAL_COMPONENT_T *camera, int on);
+	int pigun_camera_awb_gains(MMAL_COMPONENT_T *camera, float r_gain, float b_gain);
+	int pigun_camera_blur(MMAL_COMPONENT_T *camera, int on);
+	int pigun_camera_exposuremode(MMAL_COMPONENT_T *camera, int on);
+#ifdef __cplusplus
+}
+#endif
 
 
 /*
