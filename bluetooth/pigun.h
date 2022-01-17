@@ -26,7 +26,8 @@
 
 #include <semaphore.h>
 
-
+#include <X11/Xlib.h>
+#include <X11/Xutil.h>
 
 
 #ifndef PIGUN
@@ -85,9 +86,33 @@ extern float pigun_aimOffset_x, pigun_aimOffset_y;
 
 
 // these function define how detection and aiming works
-extern int pigun_detect(unsigned char* data);
-extern void pigun_calculate_aim();
-extern void pigun_preview(MMAL_BUFFER_HEADER_T* output, MMAL_BUFFER_HEADER_T* source); // only used if PIGUN_PREVIEW is defined
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+int pigun_detect(unsigned char* data);
+void pigun_calculate_aim();
+void pigun_preview(MMAL_BUFFER_HEADER_T* output, MMAL_BUFFER_HEADER_T* source); // only used if PIGUN_PREVIEW is defined
+
+#ifdef __cplusplus
+}
+#endif
+
+
+#ifdef PIGUN_MOUSE
+extern Display* displayMain;
+extern Screen* screen;
+extern int screenWidth;
+extern int screenHeight;
+
+	#ifdef __cplusplus
+	extern "C" {
+	#endif
+		void mouseMove(float x, float y);
+	#ifdef __cplusplus
+	}
+	#endif
+#endif
 
 
 

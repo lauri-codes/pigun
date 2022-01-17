@@ -35,5 +35,22 @@ make link
 The detection module of choice (pigun-XXX) has to be defined in the makefile, and it is supposed to compile to `pigun_kernel.o`.
 The dummy module does nothing at all.
 
-If defined, compiler flag PIGUN_PREVIEW will compile all the mmal preview parts that will show the camera preview (for debugging). 
-The main cycle will call `pigun_preview(preview_new_buffer, buffer)` which must be defined in the custom detector module.
+## Compiler Flags
+
+- PIGUN_PREVIEW: define to compile all the mmal preview parts that will show the camera preview (for debugging)
+- PIGUN_MOUSE: define to compile the mouse-move parts of the code (requires a screen)
+
+
+## Detection Module
+
+A detection module must define three functions:
+
+- `int pigun_detect(unsigned char* data)`
+- `void pigun_calculate_aim()`
+- `void pigun_preview(MMAL_BUFFER_HEADER_T* output, MMAL_BUFFER_HEADER_T* source)`
+
+`pigun_preview` is required when compiling with PIGUN_PREVIEW defined.
+
+
+
+

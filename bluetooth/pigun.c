@@ -51,11 +51,21 @@ Peak* pigun_peaks;
 float pigun_aimOffset_x, pigun_aimOffset_y;
 
 
+#ifdef PIGUN_MOUSE
 Display* displayMain;
 Screen* screen;
-//Window root;
 int screenWidth;
 int screenHeight;
+
+void mouseMove(float x, float y) {
+
+    Window root = DefaultRootWindow(displayMain);
+    int screenX = round(x * screenWidth);
+    int screenY = round(y * screenHeight);
+    XWarpPointer(displayMain, None, root, 0, 0, 0, 0, screenX, screenY);
+    XFlush(displayMain);
+}
+#endif
 
 // GLOBAL MMAL STUFF
 MMAL_PORT_T* pigun_video_port;
@@ -66,14 +76,7 @@ MMAL_PORT_T* preview_input_port = NULL;
 #endif
 
 
-void mouseMove(float x, float y) {
 
-    Window root = DefaultRootWindow(displayMain);
-    int screenX = round(x * screenWidth);
-    int screenY = round(y * screenHeight);
-    XWarpPointer(displayMain, None, root, 0, 0, 0, 0, screenX, screenY);
-    XFlush(displayMain);
-}
 
 
 
@@ -418,16 +421,20 @@ void* pigun_cycle(void* nullargs) {
     //int argc = 0;
     //char** argv;
 
+#ifdef PIGUN_MOUSE
     // Open mouse connection
     displayMain = XOpenDisplay(NULL);
     if (displayMain == NULL)
     {
-        fprintf(stderr, "Could not open main display\n");
+        fprintf(stderr, "PIGUN ERROR: Could not open main display\n");
         exit(EXIT_FAILURE);
     }
-    screen = DefaultScreenOfDisplay(displayMain);
-    screenWidth = screen->width;
-    screenHeight = screen->height;
+    else {
+        screen = DefaultScreenOfDisplay(displayMain);
+        screenWidth = screen->width;
+        screenHeight = screen->height;
+    }
+#endif
 
     // Initialize the camera system
     int error = pigun_mmal_init();
