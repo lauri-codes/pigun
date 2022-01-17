@@ -2,7 +2,7 @@
 #include <bcm2835.h>
 
 // Input on RPi pin GPIO 0 of pizero
-#define PIN RPI_BPLUS_GPIO_J8_11
+#define PIN 17 //RPI_BPLUS_GPIO_J8_11
 
 int main(void) {
 
@@ -20,17 +20,19 @@ int main(void) {
     //  with a pullup
     bcm2835_gpio_set_pud(PIN, BCM2835_GPIO_PUD_UP);
     // And a low detect enable
-    bcm2835_gpio_len(PIN);
+    bcm2835_gpio_fen(PIN);
 
 
     printf("BCM looping...\n");
     while (1)
     {
+        printf("loop begins: %i \n", bcm2835_gpio_lev(PIN));
         if (bcm2835_gpio_eds(PIN))
         {
+            printf("eds on PIN worked! current is: %i\n", bcm2835_gpio_lev(PIN));
             // Now clear the eds flag by setting it to 1
             bcm2835_gpio_set_eds(PIN);
-            printf("low event detect for pin 0\n");
+            printf("bcm2835_gpio_fen event detect for pin 0\n");
         }
 
         // wait a bit
