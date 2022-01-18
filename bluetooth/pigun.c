@@ -22,6 +22,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <sys/time.h>
 
 #include <bcm2835.h>
@@ -44,8 +45,31 @@
 // the HID report
 pigun_report_t global_pigun_report;
 
+int pigun_button_pin[8] = { PIN_TRG,PIN_RLD,PIN_AX3,PIN_AX4 ,PIN_AX5 , PIN_AX6 , PIN_AX7 ,PIN_CAL };
+
+// button triggers
+// when a button is pressed, set the corresponding flag to 1
+// set it back to zero when the event is processed
+PigunButtons pigun_buttons;
+PigunButtons pigun_button_release;
+
 // detected peaks - in order
 Peak* pigun_peaks;
+
+// normalised aiming point - before calibration applies
+PigunAimPoint pigun_aim_norm;
+
+PigunAimPoint pigun_cal_topleft;
+PigunAimPoint pigun_cal_lowright;
+
+
+/// <summary>
+/// State of the gun:
+/// 0: idle/normal
+/// 1: calibration - expect top-left
+/// 2: calibration - expect bottom-right
+/// </summary>
+int pigun_state;
 
 // Calibration offsets to apply along x/y in reduced coordinates (0,1)
 float pigun_aimOffset_x, pigun_aimOffset_y;
@@ -74,9 +98,6 @@ MMAL_POOL_T* pigun_video_port_pool;
 MMAL_POOL_T* preview_input_port_pool = NULL;
 MMAL_PORT_T* preview_input_port = NULL;
 #endif
-
-
-
 
 
 
@@ -121,6 +142,48 @@ static void video_buffer_callback(MMAL_PORT_T* port, MMAL_BUFFER_HEADER_T* buffe
     
     // computes the aiming position from the peaks
     pigun_calculate_aim();
+
+
+
+
+
+    // check the buttons ***************************************************
+    uint8_t buttons = pigun_buttons.raw;
+
+    if (pigun_buttons.calibrate) { // always enter the calibration mode when the button is pressed
+        pigun_state = 1; // next trigger pull marks top-left calibration point
+        pigun_buttons.calibrate = 0;
+        pigun_buttons.trigger = 0; // reset this so the user has to click again
+    }
+    else if(pigun_buttons.trigger) {
+    
+        if (pigun_state == 1) {
+            // set the top-left calibration point
+            pigun_cal_topleft = pigun_aim_norm;
+            pigun_state = 2;
+        }
+        else if (pigun_state == 2) {
+            // set the low-right calibration point
+            pigun_cal_lowright = pigun_aim_norm;
+            pigun_state = 0;
+        }
+        else if (pigun_state == 0) {
+            // TODO: fire the solenoid on some other pin?
+
+        }
+        pigun_buttons.trigger = 0;
+    }
+    else {
+
+        
+    }
+
+    // TODO: other buttons?
+    // copy the buttons state to the HID report
+    // this is the state as it was before processing inputs
+    global_pigun_report.buttons = buttons;
+
+    // *********************************************************************
 
 
 
@@ -442,13 +505,49 @@ void* pigun_cycle(void* nullargs) {
         return NULL;
     }
 
+    // normal state
+    pigun_state = 0;
+    pigun_buttons.raw = 0;
+    pigun_button_release.raw = 0;
+
     // allocate peaks
     pigun_peaks = (Peak*)calloc(4, sizeof(Peak));
 
-    // repeat forever and ever!
-    while (1);
+    // GPIO system
+    if (!bcm2835_init()) {
+        printf("PIGUN ERROR: failed to init BCM2835!\n");
+        return NULL;
+    }
 
+    
+    
+    for (int i = 0; i < 8; ++i) {
+        bcm2835_gpio_fsel(pigun_button_pin[i], BCM2835_GPIO_FSEL_INPT);   // set pin as INPUT
+        bcm2835_gpio_set_pud(pigun_button_pin[i], BCM2835_GPIO_PUD_UP);   // give it a pullup resistor
+        bcm2835_gpio_fen(pigun_button_pin[i]);  // detect falling edge - button is pressed
+
+    }
+  
+
+    // repeat forever and ever!
+    // there could be a graceful shutdown?
+    while (1) {
+
+        // in here we have to check the state of GPIOs
+        // initially pigun_buttons and pigun_button_release are both 0
+        // when a change is detected on a GPIO, both buttons and releases are set to 1
+        // the buttons flag is reset to 0 when the frame callback handles the event
+        // the release flag is reset to 0 when the button can be pressed again (to avoid jitter): maybe after some time or frames? need to test
+        // buttons flag will not be set to 1 if the relase is already 1
+
+        //bcm2835_gpio_eds(PIN) // test for event detection flag
+        //bcm2835_gpio_lev(PIN) // returns the level of the pin
+
+    }
+
+#ifdef PIGUN_MOUSE
     XCloseDisplay(displayMain);
+#endif
 
     free(pigun_peaks);
     return NULL;

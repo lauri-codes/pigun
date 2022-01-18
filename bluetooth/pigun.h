@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 #include <memory.h>
 #include <sysexits.h>
@@ -62,7 +63,14 @@ extern MMAL_PORT_T *port_prv_in1;
 
 
 // Button definitions - GPIO pins
-
+#define PIN_TRG 17
+#define PIN_RLD 27
+#define PIN_AX3 22
+#define PIN_AX4 10
+#define PIN_AX5 9
+#define PIN_AX6 11
+#define PIN_AX7 5
+#define PIN_CAL 26
 
 
 
@@ -80,8 +88,36 @@ struct Peak {
 
 };
 
+typedef union {
+	struct {
+		uint8_t trigger : 1;
+		uint8_t reload : 1;
+		uint8_t action3 : 1;
+		uint8_t action4 : 1;
+		uint8_t action5 : 1;
+		uint8_t action6 : 1;
+		uint8_t action7 : 1;
+		uint8_t calibrate : 1;
+	};
+	uint8_t raw;
+} PigunButtons;
+
+
+
+typedef struct PigunAimPoint PigunAimPoint;
+struct PigunAimPoint {
+	float x, y;
+};
+
+extern int pigun_state;
+extern PigunButtons pigun_buttons;
+extern int pigun_button_pin[8];
 
 extern Peak* pigun_peaks;
+extern PigunAimPoint pigun_aim_norm;
+extern PigunAimPoint pigun_cal_topleft;
+extern PigunAimPoint pigun_cal_lowright;
+
 extern float pigun_aimOffset_x, pigun_aimOffset_y;
 
 
