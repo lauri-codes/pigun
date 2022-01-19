@@ -190,8 +190,6 @@ extern "C" {
 
 
     int pigun_detect(unsigned char* data) {
-
-
         // These parameters have to be tuned to optimize the search
         const unsigned int nBlobs = 2;        // How many blobs to search
         const unsigned int dx = 4;            // How many pixels are skipped in x direction
@@ -276,9 +274,9 @@ extern "C" {
             bb = pigun_peaks[1];
             dd = pigun_peaks[0];
         }
-        aa.row = bb.row - 30;
+        aa.row = std::max(bb.row - 30, 0.0f);
         aa.col = bb.col;
-        cc.row = dd.row - 30;
+        cc.row = std::max(dd.row - 30, 0.0f);
         cc.col = dd.col;
 
         // Calculate transformation matrix from camera to rectangle
@@ -290,7 +288,6 @@ extern "C" {
 
 
     void pigun_calculate_aim() {
-    
         // Calculate the coordinate system for this frame
         pair<Vector3f, Vector3f> axes = getAxes();
         Vector3f origin = getOrigin();
@@ -307,9 +304,7 @@ extern "C" {
         mouseMove(pigun_aim.y(), 1 - pigun_aim.x());
 #endif
 
-        // TODO: compute the pigun aim output in short ints and write to global_pigun_report 
-
-
+        // TODO: compute the pigun aim output in short ints and write to global_pigun_report
     }
 
     // Setup the buffer to show in the preview window.
@@ -371,5 +366,4 @@ extern "C" {
         // Recolor corner points: d=pink
         output->data[5 * PIGUN_NPX / 4 + PIGUN_RES_X / 2 * (int)(pigun_peaks[3].row / 2) + (int)(pigun_peaks[3].col / 2)] = 255;
     }
-
 }

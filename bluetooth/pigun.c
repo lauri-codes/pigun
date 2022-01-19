@@ -139,7 +139,7 @@ static void video_buffer_callback(MMAL_PORT_T* port, MMAL_BUFFER_HEADER_T* buffe
     // call the peak detector function
     pigun_detect(buffer->data);
     // the peaks are supposed to be ordered by the detector function
-    
+
     // computes the aiming position from the peaks
     pigun_calculate_aim();
 
@@ -156,7 +156,7 @@ static void video_buffer_callback(MMAL_PORT_T* port, MMAL_BUFFER_HEADER_T* buffe
         pigun_buttons.trigger = 0; // reset this so the user has to click again
     }
     else if(pigun_buttons.trigger) {
-    
+
         if (pigun_state == 1) {
             // set the top-left calibration point
             pigun_cal_topleft = pigun_aim_norm;
@@ -175,7 +175,7 @@ static void video_buffer_callback(MMAL_PORT_T* port, MMAL_BUFFER_HEADER_T* buffe
     }
     else {
 
-        
+
     }
 
     // TODO: other buttons?
@@ -193,7 +193,7 @@ static void video_buffer_callback(MMAL_PORT_T* port, MMAL_BUFFER_HEADER_T* buffe
     MMAL_BUFFER_HEADER_T* preview_new_buffer = mmal_queue_get(preview_input_port_pool->queue);
 
     if (preview_new_buffer) {
-        
+
         preview_new_buffer->length = buffer->length;
         pigun_preview(preview_new_buffer, buffer);
 
@@ -429,6 +429,7 @@ int pigun_mmal_init(void) {
 #endif
         // *****************************************************************
 
+    printf("PIGUN: setting up parameters\n");
         // Disable exposure mode
     pigun_camera_exposuremode(camera, 0);
 
@@ -438,13 +439,14 @@ int pigun_mmal_init(void) {
         //int digital_gain = atoi(argv[2]);
         //pigun_camera_gains(camera, analog_gain, digital_gain);
     //}
-    // 
+    //
     // Setup automatic white balance
     pigun_camera_awb(camera, 0);
     pigun_camera_awb_gains(camera, 1, 1);
 
     // Setup blur
     pigun_camera_blur(camera, 1);
+    printf("PIGUN: parameters set\n");
 
     // send the buffers to the camera.video output port so it can start filling them frame data
 
@@ -473,6 +475,7 @@ int pigun_mmal_init(void) {
     pigun_video_port = camera_video_port;
     pigun_video_port_pool = camera_video_port_pool;
 
+    printf("PIGUN: camera init done\n");
     return 0;
 }
 
@@ -519,15 +522,15 @@ void* pigun_cycle(void* nullargs) {
         return NULL;
     }
 
-    
-    
+
+
     for (int i = 0; i < 8; ++i) {
         bcm2835_gpio_fsel(pigun_button_pin[i], BCM2835_GPIO_FSEL_INPT);   // set pin as INPUT
         bcm2835_gpio_set_pud(pigun_button_pin[i], BCM2835_GPIO_PUD_UP);   // give it a pullup resistor
         bcm2835_gpio_fen(pigun_button_pin[i]);  // detect falling edge - button is pressed
 
     }
-  
+
 
     // repeat forever and ever!
     // there could be a graceful shutdown?

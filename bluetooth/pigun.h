@@ -46,11 +46,11 @@
 #define PIGUN_FPS 40
 
 // camera output settings - these are 1/4th of the camera acquisition
-#define PIGUN_RES_X 410
-#define PIGUN_RES_Y 308
+#define PIGUN_RES_X 320 // 410 // 320
+#define PIGUN_RES_Y 180 // 308 // 180
 
 // total number of pixels in the buffer - has to be the product of the previous 2
-#define PIGUN_NPX 126280 //57600 // 126280 // 230400
+#define PIGUN_NPX 57600 // 126280 // 57600 // 230400
 
 #define PI 3.14159265
 extern MMAL_PORT_T *port_prv_in1;
