@@ -49,7 +49,7 @@ pigun_report_t global_pigun_report;
 int pigun_button_pin[8] = { PIN_TRG,PIN_RLD,PIN_AX3,PIN_AX4 ,PIN_AX5 , PIN_AX6 , PIN_AX7 ,PIN_CAL };
 
 // counters for each button
-uint8_t pigun_button_holder[0] = { 0,0,0,0,0,0,0,0 };
+uint8_t pigun_button_holder[8] = { 0,0,0,0,0,0,0,0 };
 // a bit is set to 1 if the button was just pressed
 uint8_t pigun_button_newpress = 0;
 
@@ -564,8 +564,7 @@ void* pigun_cycle(void* nullargs) {
 
     // normal state
     pigun_state = 0;
-    pigun_buttons.raw = 0;
-    pigun_button_release.raw = 0;
+    
 
     // allocate peaks
     pigun_peaks = (Peak*)calloc(4, sizeof(Peak));
