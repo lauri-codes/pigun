@@ -160,7 +160,7 @@ Vector2f getAim()
     Vector2f b(pigun_peaks[0].col - pigun_peaks[1].col, pigun_peaks[0].row - pigun_peaks[1].row);
     // Inverted basis matrix for transformed system. Uses the direct formula
     // for the inverse of a 2x2 matrix.
-    Matrix2d BInverse;
+    Matrix2f BInverse;
     BInverse << b.y(), -b.x(),
         -a.y(), a.x();
     BInverse *= 1.0f/(a.x() * b.y() - b.x() * a.y());
