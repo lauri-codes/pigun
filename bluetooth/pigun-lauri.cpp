@@ -148,12 +148,12 @@ Vector2f toScreen(Vector3f bl, Vector3f tr, Vector3f crosshair)
 Vector2f getAim()
 {
     // Origin in transformed system
-    Vector2f origin(peaks[2].col, peaks[2].row);
+    Vector2f origin(pigun_peaks[2].col, pigun_peaks[2].row);
     // Crosshair in original system
     Vector2f x(float(PIGUN_RES_X) / 2.0f, float(PIGUN_RES_Y) / 2.0f);
     // Basis vectors in transformed system
-    Vector3f a_hat(pigun_peaks[3].col - pigun_peaks[1].col, pigun_peaks[3].row - pigun_peaks[1].row);
-    Vector3f b_bat(pigun_peaks[0].col - pigun_peaks[1].col, pigun_peaks[0].row - pigun_peaks[1].row);
+    Vector2f a(pigun_peaks[3].col - pigun_peaks[1].col, pigun_peaks[3].row - pigun_peaks[1].row);
+    Vector2f b(pigun_peaks[0].col - pigun_peaks[1].col, pigun_peaks[0].row - pigun_peaks[1].row);
     // Inverted basis matrix for transformed system. Uses the direct formula
     // for the inverse of a 2x2 matrix.
     Matrix2d BInverse;
