@@ -145,6 +145,10 @@ Vector2f toScreen(Vector3f bl, Vector3f tr, Vector3f crosshair)
     return bufferVector;
 }
 
+/**
+ * Transforms the crosshair position in the camera space into the custom
+ * coordinate system defined by the four corners of the screen.
+ */
 Vector2f getAim()
 {
     // Origin in transformed system
@@ -159,7 +163,7 @@ Vector2f getAim()
     Matrix2d BInverse;
     BInverse << b.y(), -b.x(),
         -a.y(), a.x();
-    BInverse *= 1.0f/(a.x() * b.y() - b.x() * a.y())
+    BInverse *= 1.0f/(a.x() * b.y() - b.x() * a.y());
     return (x - origin) * BInverse;
 }
 
