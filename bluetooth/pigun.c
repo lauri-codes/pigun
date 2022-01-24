@@ -45,13 +45,14 @@
 // the HID report
 pigun_report_t global_pigun_report;
 
+// List of gpio code that will be used as the 8 buttons
 int pigun_button_pin[8] = { PIN_TRG,PIN_RLD,PIN_AX3,PIN_AX4 ,PIN_AX5 , PIN_AX6 , PIN_AX7 ,PIN_CAL };
 
-// button triggers
-// when a button is pressed, set the corresponding flag to 1
-// set it back to zero when the event is processed
-PigunButtons pigun_buttons;
-PigunButtons pigun_button_release;
+// counters for each button
+uint8_t pigun_button_holder[0] = { 0,0,0,0,0,0,0,0 };
+// a bit is set to 1 if the button was just pressed
+uint8_t pigun_button_newpress = 0;
+
 
 // detected peaks - in order
 Peak* pigun_peaks;
@@ -100,6 +101,17 @@ MMAL_PORT_T* preview_input_port = NULL;
 #endif
 
 
+static inline void button_pressed(int buttonID){
+
+    // it will have to be another 10 frames before the button can be pressed again
+    pigun_button_holder[buttonID] = 10;
+
+    // set the button in the HID report
+    global_pigun_report.buttons |= (uint8_t)(1 << buttonID);
+
+    // mark a good press event internally?
+    pigun_button_newpress |= (uint8_t)(1 << buttonID);
+}
 
 
 static void preview_buffer_callback(MMAL_PORT_T* port, MMAL_BUFFER_HEADER_T* buffer) { mmal_buffer_header_release(buffer); }
@@ -133,29 +145,81 @@ static void video_buffer_callback(MMAL_PORT_T* port, MMAL_BUFFER_HEADER_T* buffe
     t1 = t2;
 #endif
 
-
     MMAL_POOL_T* pool = (MMAL_POOL_T*)port->userdata;
 
     // call the peak detector function
     pigun_detect(buffer->data);
     // the peaks are supposed to be ordered by the detector function
 
+    // TODO: maybe add a mutex/semaphore so that the main bluetooth thread
+    // will wait until this is done with the x/y aim before reading the HID report
+
     // computes the aiming position from the peaks
     pigun_calculate_aim();
 
 
 
-
-
     // check the buttons ***************************************************
-    uint8_t buttons = pigun_buttons.raw;
 
-    if (pigun_buttons.calibrate) { // always enter the calibration mode when the button is pressed
-        pigun_state = 1; // next trigger pull marks top-left calibration point
-        pigun_buttons.calibrate = 0;
-        pigun_buttons.trigger = 0; // reset this so the user has to click again
+    // TODO: maybe add a mutex/semaphore so that the main bluetooth thread
+    // will wait until this is done with the buttons before reading the HID report
+    
+    // make a copy of the current button state
+    uint8_t buttonsDown = global_pigun_report.buttons;
+    // mark all buttons as not being in "new press" state
+    pigun_button_newpress = 0;
+
+    for (int i = 0; i < 8; i++) {
+
+        if (bcm2835_gpio_eds(pigun_button_pin[i])) {
+            // this happens when falling edge is detected
+
+            // record press
+            if (pigun_button_holder[i] == 0) button_pressed(i);
+
+            // clear GPIO event flag
+            // this is done every time the event was detected, regardless of whether the
+            // event really was a valid press, otherwise the BCM2835 wont detect it again!
+            bcm2835_gpio_set_eds(pigun_button_pin[i]);
+
+            // ignore the rest of the code since it is dealing with button releases
+            continue;
+        }
+
+        // code here => the button was not pressed just now
+        // either was was not pressed at all, or it was already pressed before this frame
+
+        // if it was already pressed, check that it is still the case
+        if ((buttonsDown >> i) & 1) {
+
+            // if the hold timer is expired...
+            if (pigun_button_holder[i] == 0) {
+                
+                // ... and the GPIO level is high
+                if (bcm2835_gpio_lev(pigun_button_pin[i]) == 0) {
+
+                    // then release the button in HID report
+                    global_pigun_report.buttons &= ~(uint8_t)(1 << i);
+                }
+            }
+            else {
+                // code here => the hold timer needs to tick down
+                pigun_button_holder[i]--;
+                // even if the button was released in the meantime, it will not be released
+                // in the HID report until the timer runs to 0.
+            }
+        }
+        // if it wasnt pressed at all, then do nothing
     }
-    else if(pigun_buttons.trigger) {
+
+    // *********************************************************************
+    // *** deal with some specific buttons *** *****************************
+
+    if ((pigun_button_newpress >> 7) & 1) { // if CAL button was just pressed
+
+        pigun_state = 1; // next trigger pull marks top-left calibration point
+    }
+    else if (pigun_button_newpress & 1) { // if TRIGGER was just pressed
 
         if (pigun_state == 1) {
             // set the top-left calibration point
@@ -171,18 +235,8 @@ static void video_buffer_callback(MMAL_PORT_T* port, MMAL_BUFFER_HEADER_T* buffe
             // TODO: fire the solenoid on some other pin?
 
         }
-        pigun_buttons.trigger = 0;
     }
-    else {
-
-
-    }
-
-    // TODO: other buttons?
-    // copy the buttons state to the HID report
-    // this is the state as it was before processing inputs
-    global_pigun_report.buttons = buttons;
-
+    // *********************************************************************
     // *********************************************************************
 
 
@@ -528,7 +582,6 @@ void* pigun_cycle(void* nullargs) {
         bcm2835_gpio_fsel(pigun_button_pin[i], BCM2835_GPIO_FSEL_INPT);   // set pin as INPUT
         bcm2835_gpio_set_pud(pigun_button_pin[i], BCM2835_GPIO_PUD_UP);   // give it a pullup resistor
         bcm2835_gpio_fen(pigun_button_pin[i]);  // detect falling edge - button is pressed
-
     }
 
 
