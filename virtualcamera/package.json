@@ -4,7 +4,7 @@
   "description": "A three.js camera simulation",
   "devDependencies": {
     "lite-server": "^2.2.2",
-    "three": "^0.84.0"
+    "three": "^0.137.0"
   },
   "scripts": {
     "dev": "npm run lite",
