@@ -158,6 +158,7 @@ Vector2f getAim()
     // Basis vectors in transformed system
     Vector2f a(pigun_peaks[3].col - pigun_peaks[1].col, pigun_peaks[3].row - pigun_peaks[1].row);
     Vector2f b(pigun_peaks[0].col - pigun_peaks[1].col, pigun_peaks[0].row - pigun_peaks[1].row);
+    cout << a.x() << ", " << a.y() << ", " << b.x() << ", " << b.y() << endl;
     // Inverted basis matrix for transformed system. Uses the direct formula
     // for the inverse of a 2x2 matrix.
     Matrix2f BInverse;
@@ -312,7 +313,6 @@ extern "C" {
         Vector2f aim = getAim();
         float x = pigun_aim.x();                                                 
         float y = pigun_aim.y();
-        cout << x << ", " << y << endl;
 #ifdef PIGUN_MOUSE
         mouseMove(x, y);
 #endif
