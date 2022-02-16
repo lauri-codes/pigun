@@ -86,7 +86,7 @@ void mouseMove(float x, float y) {
 
     Window root = DefaultRootWindow(displayMain);
     int screenX = round(x * screenWidth);
-    int screenY = round(y * screenHeight);
+    int screenY = round((1-y) * screenHeight);
     XWarpPointer(displayMain, None, root, 0, 0, 0, 0, screenX, screenY);
     XFlush(displayMain);
 }

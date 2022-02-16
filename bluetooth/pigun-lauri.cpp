@@ -314,7 +314,7 @@ extern "C" {
         float x = aim.x();                                                 
         float y = aim.y();
 #ifdef PIGUN_MOUSE
-        mouseMove(x, 1-y);
+        mouseMove(x, y);
 #endif
 
         // Send the coordinate to global variable used by bluetooth              
