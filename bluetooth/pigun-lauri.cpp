@@ -296,9 +296,9 @@ extern "C" {
             bb = pigun_peaks[1];
             dd = pigun_peaks[0];
         }
-        aa.row = std::min(bb.row + 30, PIGUN_RES_Y);
+        aa.row = std::max(bb.row - 30, 0.0f);
         aa.col = bb.col;
-        cc.row = std::min(dd.row + 30, PIGUN_RES_Y);
+        cc.row = std::max(dd.row - 30, 0.0f);
         cc.col = dd.col;
 
         // Calculate transformation matrix from camera to rectangle
@@ -314,7 +314,7 @@ extern "C" {
         float x = aim.x();                                                 
         float y = aim.y();
 #ifdef PIGUN_MOUSE
-        mouseMove(x, y);
+        mouseMove(x, 1-y);
 #endif
 
         // Send the coordinate to global variable used by bluetooth              
