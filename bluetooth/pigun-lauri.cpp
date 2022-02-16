@@ -152,7 +152,7 @@ Vector2f toScreen(Vector3f bl, Vector3f tr, Vector3f crosshair)
 Vector2f getAim()
 {
     // Origin in transformed system
-    Vector2f origin(pigun_peaks[2].col, pigun_peaks[2].row);
+    Vector2f origin(pigun_peaks[1].col, pigun_peaks[r].row);
     // Crosshair in original system
     Vector2f x(float(PIGUN_RES_X) / 2.0f, float(PIGUN_RES_Y) / 2.0f);
     // Basis vectors in transformed system
@@ -164,6 +164,7 @@ Vector2f getAim()
     BInverse << b.y(), -b.x(),
         -a.y(), a.x();
     BInverse *= 1.0f/(a.x() * b.y() - b.x() * a.y());
+    // Returns the crosshair position in transformed system.
     return BInverse * (x - origin);
 }
 
