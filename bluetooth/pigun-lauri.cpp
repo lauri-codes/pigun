@@ -296,9 +296,9 @@ extern "C" {
             bb = pigun_peaks[1];
             dd = pigun_peaks[0];
         }
-        aa.row = std::max(bb.row - 30, 0.0f);
+        aa.row = std::min(bb.row + 30, PIGUN_RES_Y);
         aa.col = bb.col;
-        cc.row = std::max(dd.row - 30, 0.0f);
+        cc.row = std::min(dd.row + 30, PIGUN_RES_Y);
         cc.col = dd.col;
 
         // Calculate transformation matrix from camera to rectangle
@@ -313,7 +313,6 @@ extern "C" {
         Vector2f aim = getAim();
         float x = aim.x();                                                 
         float y = aim.y();
-        cout << aim << endl;
 #ifdef PIGUN_MOUSE
         mouseMove(x, y);
 #endif
