@@ -145,6 +145,30 @@ Vector2f toScreen(Vector3f bl, Vector3f tr, Vector3f crosshair)
     return bufferVector;
 }
 
+/**
+ * Transforms the crosshair position in the camera space into the custom
+ * coordinate system defined by the four corners of the screen.
+ */
+Vector2f getAim()
+{
+    // Origin in transformed system
+    Vector2f origin(pigun_peaks[1].col, pigun_peaks[1].row);
+    // Crosshair in original system
+    Vector2f x(float(PIGUN_RES_X) / 2.0f, float(PIGUN_RES_Y) / 2.0f);
+    // Basis vectors in transformed system
+    Vector2f a(pigun_peaks[3].col - pigun_peaks[1].col, pigun_peaks[3].row - pigun_peaks[1].row);
+    Vector2f b(pigun_peaks[0].col - pigun_peaks[1].col, pigun_peaks[0].row - pigun_peaks[1].row);
+    // Inverted basis matrix for transformed system. Uses the direct formula
+    // for the inverse of a 2x2 matrix.
+    Matrix2f BInverse;
+    BInverse << b.y(), -b.x(),
+        -a.y(), a.x();
+    BInverse *= 1.0f/(a.x() * b.y() - b.x() * a.y());
+    // Returns the crosshair position in transformed system.
+    Vector2f xPrime = BInverse * (x - origin);
+    return xPrime;
+}
+
 // Calculate the coordinate system origin
 Vector3f getOrigin()
 {
@@ -186,8 +210,6 @@ Vector3f centerToAxes(pair<Vector3f, Vector3f> axes, Vector3f origin)
 
 
 extern "C" {
-
-
 
     int pigun_detect(unsigned char* data) {
         // These parameters have to be tuned to optimize the search
@@ -288,23 +310,16 @@ extern "C" {
 
 
     void pigun_calculate_aim() {
-        // Calculate the coordinate system for this frame
-        pair<Vector3f, Vector3f> axes = getAxes();
-        Vector3f origin = getOrigin();
-        int ox = (int)round(origin.x());
-        int oy = (int)round(origin.y());
-        Vector3f blNatural = axes.first * bottomLeft.x() + axes.second * bottomLeft.y();
-        Vector3f trNatural = axes.first * topRight.x() + axes.second * topRight.y();
-
-        // Calculate the relative position of the crosshair inside the
-        // rectangle, move mouse to that position
-        Vector3f crosshair = centerToAxes(axes, origin);
-        pigun_aim = toScreen(bottomLeft, topRight, crosshair);
+        Vector2f aim = getAim();
+        float x = aim.x();                                                 
+        float y = aim.y();
 #ifdef PIGUN_MOUSE
-        mouseMove(pigun_aim.y(), 1 - pigun_aim.x());
+        mouseMove(x, y);
 #endif
 
-        // TODO: compute the pigun aim output in short ints and write to global_pigun_report
+        // Send the coordinate to global variable used by bluetooth              
+        global_pigun_report.x = (short)((2 * x - 1) * 32767);                    
+        global_pigun_report.y = (short)((2 * y - 1) * 32767);
     }
 
     // Setup the buffer to show in the preview window.
@@ -315,10 +330,8 @@ extern "C" {
         // copy the Y channel as is
         memcpy(output->data, source->data, PIGUN_NPX); // copy only Y
 
-
         // Show crosshair
         output->data[PIGUN_RES_X * (int)(PIGUN_RES_Y / 2.0) + (int)(PIGUN_RES_X / 2.0)] = 255;
-
 
         // Show the peaks with black dots
         output->data[PIGUN_RES_X * (int)(pigun_peaks[0].row) + (int)(pigun_peaks[0].col)] = 128;
@@ -326,8 +339,9 @@ extern "C" {
         //output->data[PIGUN_RES_X*(int)(pigun_peaks[2].row)+(int)(pigun_peaks[2].col)] = 128;
         //output->data[PIGUN_RES_X*(int)(pigun_peaks[3].row)+(int)(pigun_peaks[3].col)] = 128;
 
-        // WARNING: some of this calculation is already done in pigun_calculate_aim() and repeated here
-        // Calculate the coordinate system for this frame
+        // WARNING: some of this calculation is already done in
+        // pigun_calculate_aim() and repeated here Calculate the coordinate
+        // system for this frame
         pair<Vector3f, Vector3f> axes = getAxes();
         Vector3f origin = getOrigin();
         int ox = (int)round(origin.x());
@@ -355,7 +369,8 @@ extern "C" {
         output->data[PIGUN_RES_X * tlY + tlX] = 255;
         output->data[PIGUN_RES_X * brY + brX] = 255;
 
-        memset(&output->data[PIGUN_NPX], 128, PIGUN_NPX / 2); // reset U/V channels to single color
+        // Set U/V channels to single color
+        memset(&output->data[PIGUN_NPX], 128, PIGUN_NPX / 2);
 
         // Recolor corner points: a=green
         output->data[PIGUN_NPX + PIGUN_RES_X / 2 * (int)(pigun_peaks[0].row / 2) + (int)(pigun_peaks[0].col / 2)] = 0;
