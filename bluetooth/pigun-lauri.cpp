@@ -165,8 +165,10 @@ Vector2f getAim()
     BInverse << b.y(), -b.x(),
         -a.y(), a.x();
     BInverse *= 1.0f/(a.x() * b.y() - b.x() * a.y());
+    cout << BInverse << endl;
     // Returns the crosshair position in transformed system.
-    return BInverse * (x - origin);
+    Vector2f x_prime = BInverse * (x - origin);
+    return xPrime;
 }
 
 // Calculate the coordinate system origin
