@@ -311,8 +311,8 @@ extern "C" {
 
     void pigun_calculate_aim() {
         Vector2f aim = getAim();
-        float x = pigun_aim.x();                                                 
-        float y = pigun_aim.y();
+        float x = aim.x();                                                 
+        float y = aim.y();
         cout << aim << endl;
 #ifdef PIGUN_MOUSE
         mouseMove(x, y);
