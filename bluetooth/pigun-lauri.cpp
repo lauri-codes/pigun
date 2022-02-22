@@ -168,8 +168,7 @@ Vector2f getAim()
     Vector2f xPrime = BInverse * (x - origin);
 
     // Clip to be between 0 and 1
-    xPrime.max(1);
-    xPrime.min(0);
+    xPrime = xPrime.cwiseMin(0).cwiseMax(1);
 
     return xPrime;
 }
