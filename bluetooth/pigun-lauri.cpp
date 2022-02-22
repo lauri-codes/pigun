@@ -103,15 +103,14 @@ vector<pair<int, int> > bfs(int idx, unsigned char* data, const float& threshold
 }
 
 /**
- * Transforms the crosshair position in the camera space into the custom
- * coordinate system defined by the four corners of the screen.
+ * Transforms a position in the camera space to the correponsding position in
+ * screen space.
  */
-Vector2f getAim()
+Vector2f toScreen(Vector2f cameraPos)
 {
     // Origin in transformed system
     Vector2f origin(pigun_peaks[1].col, pigun_peaks[1].row);
     // Crosshair in original system
-    Vector2f x(float(PIGUN_RES_X) / 2.0f, float(PIGUN_RES_Y) / 2.0f);
     // Basis vectors in transformed system
     Vector2f a(pigun_peaks[3].col - pigun_peaks[1].col, pigun_peaks[3].row - pigun_peaks[1].row);
     Vector2f b(pigun_peaks[0].col - pigun_peaks[1].col, pigun_peaks[0].row - pigun_peaks[1].row);
@@ -122,56 +121,20 @@ Vector2f getAim()
         -a.y(), a.x();
     BInverse *= 1.0f/(a.x() * b.y() - b.x() * a.y());
     // Returns the crosshair position in transformed system.
-    Vector2f xPrime = BInverse * (x - origin);
+    Vector2f screenPos = BInverse * (cameraPos - origin);
 
     // Clip to be between 0 and 1
-    xPrime = xPrime.cwiseMax(0).cwiseMin(1);
+    screenPos = screenPos.cwiseMax(0).cwiseMin(1);
 
-    return xPrime;
+    return screenPos;
 }
-
-// Calculate the coordinate system origin
-Vector3f getOrigin()
-{
-    // Decide which light is which
-    float x0 = pigun_peaks[0].col;
-    float x1 = pigun_peaks[1].col;
-    int aIndex, bIndex;
-    if (x0 <= x1) {
-        aIndex = 0;
-        bIndex = 1;
-    }
-    else {
-        aIndex = 1;
-        bIndex = 0;
-    }
-
-    Vector3f a(pigun_peaks[aIndex].col, PIGUN_RES_Y - pigun_peaks[aIndex].row, 0);
-    Vector3f b(pigun_peaks[bIndex].col, PIGUN_RES_Y - pigun_peaks[bIndex].row, 0);
-    Vector3f origin = 0.5 * (b + a);
-
-    return origin;
-}
-
-Vector3f centerToAxes(pair<Vector3f, Vector3f> axes, Vector3f origin)
-{
-    // Calculate the frame axis and origin
-    Vector3f center(PIGUN_RES_X / 2, PIGUN_RES_Y / 2, 0.0);
-
-    // Save the calibration location with respect to the origin at the
-    // center of the leds and the axes determined by the leds
-    Vector3f disp = center - origin;
-    float inorm = axes.first.norm();
-    float jnorm = axes.second.norm();
-    float dx = disp.dot(axes.first) / (inorm * inorm);
-    float dy = disp.dot(axes.second) / (jnorm * jnorm);
-    return Vector3f(dx, dy, 0);
-}
-
-
 
 extern "C" {
 
+    /**
+     * Detects peaks in the camera output and reports them under the global
+     * "peaks"-variables.
+     */
     int pigun_detect(unsigned char* data) {
         // These parameters have to be tuned to optimize the search
         const unsigned int nBlobs = 2;        // How many blobs to search
@@ -270,8 +233,13 @@ extern "C" {
     }
 
 
+    /**
+     * Used to calculate the mouse/joystick position in screen coordinates and
+     * send it to bluetooth.
+     */
     void pigun_calculate_aim() {
-        Vector2f aim = getAim();
+        Vector2f crosshair(float(PIGUN_RES_X) / 2.0f, float(PIGUN_RES_Y) / 2.0f);
+        Vector2f aim = toScreen(crosshair);
         float x = aim.x();                                                 
         float y = aim.y();
 #ifdef PIGUN_MOUSE
@@ -283,9 +251,11 @@ extern "C" {
         global_pigun_report.y = (short)((2 * y - 1) * 32767);
     }
 
-    // Setup the buffer to show in the preview window.
-    // source is the original frame buffer from the camera
-    // output is the buffer to send to preview/input port
+    /**
+     * Setup the buffer to show in the preview window. source is the original
+     * frame buffer from the camera output is the buffer to send to
+     * preview/input port
+     */
     void pigun_preview(MMAL_BUFFER_HEADER_T* output, MMAL_BUFFER_HEADER_T* source) {
 
         // The following line will copy the Y channel as seen by the camera
