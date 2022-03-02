@@ -115,7 +115,7 @@ void emulateFourCorners()
     Vector3f bottomLeftVec(pigun_peaks[1].col, pigun_peaks[1].row, 0);
     Vector3f bottomRightVec(pigun_peaks[3].col, pigun_peaks[3].row, 0);
     Vector3f a = bottomRightVec - bottomLeftVec;
-    Vector3f c(0, 0, 1);
+    Vector3f c(0, 0, 9.0/16.0);
     Vector3f b = a.cross(c);
     Vector3f topLeftVec = bottomLeftVec + b;
     Vector3f topRightVec = bottomRightVec + b;
