@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <math.h>
 #include "pigun.h"
 #include "pigun_bt.h"
 
@@ -20,6 +21,8 @@ int pigun_detect(unsigned char* data) {
 }
 
 
+float phase = 0;
+
 // This function computes the aiming coordinates from the peaks
 // Coordinates have to go in global_pigun_report(.x and .y)
 // and they are 16-bit signed integers (-32768, +32767)
@@ -29,6 +32,15 @@ void pigun_calculate_aim() {
 	float x = 0.5f, y = 0.5f;
 
 	// ...
+
+	x = 0.5f + 0.2f * (cosf(phase));
+	y = 0.5f + 0.2f * (sinf(phase));
+
+	phase += 0.04f;
+	if (phase >= 2 * M_PI) {
+		phase -= 2 * M_PI;
+	}
+
 
 	// including the calibration...
 	x += pigun_aimOffset_x;
