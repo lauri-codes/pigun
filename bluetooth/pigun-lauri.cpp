@@ -255,7 +255,6 @@ extern "C" {
         emulateFourCorners();
     }
 
-
     /**
      * Used to calculate the mouse/joystick position in screen coordinates and
      * send it to bluetooth.
@@ -271,7 +270,7 @@ extern "C" {
 
         // Send the coordinate to global variable used by bluetooth              
         global_pigun_report.x = (short)((2 * x - 1) * 32767);                    
-        global_pigun_report.y = (short)((2 * y - 1) * 32767);
+        global_pigun_report.y = (short)((2 * (1-y) - 1) * 32767);
     }
 
     /**
