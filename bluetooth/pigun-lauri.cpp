@@ -103,6 +103,34 @@ vector<pair<int, int> > bfs(int idx, unsigned char* data, const float& threshold
 }
 
 /**
+ * Whenever only two peaks are present, artificially adds the missing ones
+ * using an approximation.
+ *
+ * By creating a vector that points from the left peak to the left peak (=a), and
+ * taking the cross product of this vector with the out-of-screen vector (=c), we
+ * can create a new artificial axis (=b).
+ *
+ * NOTE: This emulation expects a 16:9 aspect ratio.
+ */
+void emulateFourCorners()
+{
+    Vector3f bottomLeftVec(pigun_peaks[1].col, pigun_peaks[1].row, 0);
+    Vector3f bottomRightVec(pigun_peaks[3].col, pigun_peaks[3].row, 0);
+    Vector3f a = bottomRightVec - bottomLeftVec;
+    Vector3f c(0, 0, 9.0/16.0);
+    Vector3f b = a.cross(c);
+    Vector3f topLeftVec = bottomLeftVec + b;
+    Vector3f topRightVec = bottomRightVec + b;
+    Peak topLeftPeak, topRightPeak;
+    topLeftPeak.col = std::max(topLeftVec.x(), 0.0f);
+    topLeftPeak.row = std::max(topLeftVec.y(), 0.0f);
+    topRightPeak.col = std::max(topRightVec.x(), 0.0f);
+    topRightPeak.row = std::max(topRightVec.y(), 0.0f);
+    pigun_peaks[0] = topLeftPeak;
+    pigun_peaks[2] = topRightPeak;
+}
+
+/**
  * Transforms a position in the camera space to the correponsding position in
  * screen space.
  */
@@ -210,28 +238,22 @@ extern "C" {
             ++iBlob;
         }
 
-        // Order the peaks: a=top left, b=bottom left, c=top right, d=bottom_right
-        Peak aa, bb, cc, dd;
+        // Store the bottom peaks
+        Peak bottomLeftPeak, bottomRightPeak;
         if (pigun_peaks[0].col < pigun_peaks[1].col) {
-            bb = pigun_peaks[0];
-            dd = pigun_peaks[1];
+            bottomLeftPeak = pigun_peaks[0];
+            bottomRightPeak = pigun_peaks[1];
         }
         else {
-            bb = pigun_peaks[1];
-            dd = pigun_peaks[0];
+            bottomLeftPeak = pigun_peaks[1];
+            bottomRightPeak = pigun_peaks[0];
         }
-        aa.row = std::max(bb.row - 30, 0.0f);
-        aa.col = bb.col;
-        cc.row = std::max(dd.row - 30, 0.0f);
-        cc.col = dd.col;
+        pigun_peaks[1] = bottomLeftPeak;
+        pigun_peaks[3] = bottomRightPeak;
 
-        // Calculate transformation matrix from camera to rectangle
-        pigun_peaks[0] = aa;
-        pigun_peaks[1] = bb;
-        pigun_peaks[2] = cc;
-        pigun_peaks[3] = dd;
+        // Add the missing peaks
+        emulateFourCorners();
     }
-
 
     /**
      * Used to calculate the mouse/joystick position in screen coordinates and
@@ -248,7 +270,7 @@ extern "C" {
 
         // Send the coordinate to global variable used by bluetooth              
         global_pigun_report.x = (short)((2 * x - 1) * 32767);                    
-        global_pigun_report.y = (short)((2 * y - 1) * 32767);
+        global_pigun_report.y = (short)((2 * (1-y) - 1) * 32767);
     }
 
     /**
