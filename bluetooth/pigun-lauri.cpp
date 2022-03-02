@@ -109,6 +109,8 @@ vector<pair<int, int> > bfs(int idx, unsigned char* data, const float& threshold
  * By creating a vector that points from the left peak to the left peak (=a), and
  * taking the cross product of this vector with the out-of-screen vector (=c), we
  * can create a new artificial axis (=b).
+ *
+ * NOTE: This emulation expects a 16:9 aspect ratio.
  */
 void emulateFourCorners()
 {
@@ -236,29 +238,21 @@ extern "C" {
             ++iBlob;
         }
 
-        // Order the peaks: a=top left, b=bottom left, c=top right, d=bottom_right
-        Peak aa, bb, cc, dd;
+        // Store the bottom peaks
+        Peak bottomLeftPeak, bottomRightPeak;
         if (pigun_peaks[0].col < pigun_peaks[1].col) {
-            bb = pigun_peaks[0];
-            dd = pigun_peaks[1];
+            bottomLeftPeak = pigun_peaks[0];
+            bottomRightPeak = pigun_peaks[1];
         }
         else {
-            bb = pigun_peaks[1];
-            dd = pigun_peaks[0];
+            bottomLeftPeak = pigun_peaks[1];
+            bottomRightPeak = pigun_peaks[0];
         }
-        pigun_peaks[1] = bb;
-        pigun_peaks[3] = dd;
+        pigun_peaks[1] = bottomLeftPeak;
+        pigun_peaks[3] = bottomRightPeak;
 
         // Add the missing peaks
         emulateFourCorners();
-        //aa.row = std::max(bb.row - 30, 0.0f);
-        //aa.col = bb.col;
-        //cc.row = std::max(dd.row - 30, 0.0f);
-        //cc.col = dd.col;
-
-        // Calculate transformation matrix from camera to rectangle
-        //pigun_peaks[0] = aa;
-        //pigun_peaks[2] = cc;
     }
 
 
