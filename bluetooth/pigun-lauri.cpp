@@ -105,13 +105,17 @@ vector<pair<int, int> > bfs(int idx, unsigned char* data, const float& threshold
 /**
  * Whenever only two peaks are present, artificially adds the missing ones
  * using an approximation.
+ *
+ * By creating a vector that points from the left peak to the left peak (=a), and
+ * taking the cross product of this vector with the out-of-screen vector (=c), we
+ * can create a new artificial axis (=b).
  */
 void emulateFourCorners()
 {
     Vector3f bottomLeftVec(pigun_peaks[1].col, pigun_peaks[1].row, 0);
     Vector3f bottomRightVec(pigun_peaks[3].col, pigun_peaks[3].row, 0);
     Vector3f a = bottomRightVec - bottomLeftVec;
-    Vector3f c(0, 0, -1);
+    Vector3f c(0, 0, 1);
     Vector3f b = a.cross(c);
     Vector3f topLeftVec = bottomLeftVec + b;
     Vector3f topRightVec = bottomRightVec + b;
