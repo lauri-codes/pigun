@@ -90,33 +90,6 @@ vector<pair<int, int> > bfs(int idx, unsigned char* data, const float& threshold
     return indices;
 }
 
-/**
- * Transforms a position in the camera space to the correponsding position in
- * screen space.
- */
-Vector2f toScreen(Vector2f cameraPos)
-{
-    // Origin in transformed system
-    Vector2f origin(pigun_peaks[1].col, pigun_peaks[1].row);
-    // Crosshair in original system
-    // Basis vectors in transformed system
-    Vector2f a(pigun_peaks[3].col - pigun_peaks[1].col, pigun_peaks[3].row - pigun_peaks[1].row);
-    Vector2f b(pigun_peaks[0].col - pigun_peaks[1].col, pigun_peaks[0].row - pigun_peaks[1].row);
-    // Inverted basis matrix for transformed system. Uses the direct formula
-    // for the inverse of a 2x2 matrix.
-    Matrix2f BInverse;
-    BInverse << b.y(), -b.x(),
-        -a.y(), a.x();
-    BInverse *= 1.0f/(a.x() * b.y() - b.x() * a.y());
-    // Returns the crosshair position in transformed system.
-    Vector2f screenPos = BInverse * (cameraPos - origin);
-
-    // Clip to be between 0 and 1
-    screenPos = screenPos.cwiseMax(0).cwiseMin(1);
-
-    return screenPos;
-}
-
 extern "C" {
 
     /**
