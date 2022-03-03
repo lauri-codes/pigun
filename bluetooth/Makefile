@@ -144,7 +144,7 @@ MMAL_LNK = -lX11 -lwiringPi -lbcm_host -lvcos -lvchiq_arm -lpthread -lrt -lmmal 
 
 # pigun flags
 # PIGUN_PREVIEW enables the preview window
-PIGUNFLAGS = -DPIGUN_PREVIEW -DPIGUN_MOUSE
+PIGUNFLAGS = #-DPIGUN_PREVIEW -DPIGUN_MOUSE
 
 
 # extra libs no longer used cos they slo AF: -lopencv_shape -lopencv_stitching -lopencv_superres -lopencv_videostab -lopencv_aruco -lopencv_bgsegm -lopencv_bioinspired -lopencv_ccalib -lopencv_datasets -lopencv_dpm -lopencv_face -lopencv_freetype -lopencv_fuzzy -lopencv_hdf -lopencv_line_descriptor -lopencv_optflow -lopencv_video -lopencv_plot -lopencv_reg -lopencv_saliency -lopencv_stereo -lopencv_structured_light -lopencv_phase_unwrapping -lopencv_rgbd -lopencv_viz -lopencv_surface_matching -lopencv_text -lopencv_ximgproc -lopencv_calib3d -lopencv_features2d -lopencv_flann -lopencv_xobjdetect -lopencv_objdetect -lopencv_ml -lopencv_xphoto -lopencv_highgui -lopencv_videoio -lopencv_imgcodecs -lopencv_photo -lopencv_imgproc -lopencv_core
@@ -240,16 +240,34 @@ pigun:
 	# compile helper functions - I could not do this with C... 
 	g++ -c -std=c++11 -O3 -w -std=c++11 ${PIGUNFLAGS} ${MMAL_INC} pigun-helpers.c
 
-# compile the dummy peak detection
+# compile the dummy peak detection and aiming calculator
 pigun-dummy:
+	rm -f pigun_detector.o pigun_aimer.o
 	${CC} -c ${CFLAGS} ${PIGUNFLAGS} ${MMAL_INC} -o pigun_kernel.o pigun-dummy.c
 
-pigun-lauri:
-	g++ -c -std=c++11 -O3 -w ${PIGUNFLAGS} ${MMAL_INC} -o pigun_kernel.o pigun-lauri.cpp 
+
+# these targets compile the peak detectors and the aim calculators separately
+pigun-detector-lauri:
+	rm -f pigun_kernel.o
+	g++ -c -std=c++11 -O3 -w ${PIGUNFLAGS} ${MMAL_INC} -o pigun_detector.o pigun-detector-lauri.cpp 
+
+pigun-aimer-lauri:
+	rm -f pigun_kernel.o
+	g++ -c -std=c++11 -O3 -w ${PIGUNFLAGS} ${MMAL_INC} -o pigun_aimer.o pigun-aimer-lauri.cpp 
+
+pigun-detector-4led:
+	rm -f pigun_kernel.o
+	g++ -c -std=c++11 -O3 -w ${PIGUNFLAGS} ${MMAL_INC} -o pigun_detector.o pigun-detector-lauri.cpp 
+
+pigun-aimer-4led:
+	rm -f pigun_kernel.o
+	${CC} -c ${CFLAGS} ${PIGUNFLAGS} ${MMAL_INC} -o pigun_aimer.o pigun-aimer-4led.cpp 
 
 
+# links all object files into pigun.exe
 link:
 	${CC} -O3 ${MMAL_LIB} *.o -o pigun.exe ${MMAL_LNK} -lbcm2835 -lstdc++
+
 
 gpiotest:
 	${CC} ${CFLAGS} gpiotest.c -o gpiotest.exe -lbcm2835
