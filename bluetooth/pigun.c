@@ -578,7 +578,7 @@ void* pigun_cycle(void* nullargs) {
     // Initialize the camera system
     int error = pigun_mmal_init();
     if (error != 0) {
-        bcm2835_gpio_write(PIN_LED_ERR, HIGH);
+        bcm2835_gpio_write(PIN_OUT_ERR, HIGH);
         return NULL;
     }
     printf("PIGUN: MMAL started.\n");
