@@ -112,11 +112,13 @@ struct PigunAimPoint {
 //extern int pigun_button_pin[8];
 
 extern Peak* pigun_peaks;
+
+/// <summary>
+/// This is the aiming point in normalised coords (0-1 on both x,y), before calibration is applied
+/// </summary>
 extern PigunAimPoint pigun_aim_norm;
 extern PigunAimPoint pigun_cal_topleft;
 extern PigunAimPoint pigun_cal_lowright;
-
-extern float pigun_aimOffset_x, pigun_aimOffset_y;
 
 
 // these function define how detection and aiming works

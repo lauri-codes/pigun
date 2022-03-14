@@ -261,7 +261,7 @@ pigun-detector-4led:
 
 pigun-aimer-4led:
 	rm -f pigun_kernel.o
-	${CC} -c ${CFLAGS} ${PIGUNFLAGS} ${MMAL_INC} -o pigun_aimer.o pigun-aimer-4led.cpp 
+	${CC} -c ${CFLAGS} ${PIGUNFLAGS} ${MMAL_INC} -o pigun_aimer.o pigun-aimer-4led.c 
 
 
 # links all object files into pigun.exe

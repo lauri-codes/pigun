@@ -73,8 +73,7 @@ PigunAimPoint pigun_cal_lowright;
 /// </summary>
 int pigun_state;
 
-// Calibration offsets to apply along x/y in reduced coordinates (0,1)
-float pigun_aimOffset_x, pigun_aimOffset_y;
+int pigun_solenoid_ready;
 
 
 #ifdef PIGUN_MOUSE
@@ -169,7 +168,7 @@ static void video_buffer_callback(MMAL_PORT_T* port, MMAL_BUFFER_HEADER_T* buffe
     uint8_t buttonsDown = global_pigun_report.buttons;
     // mark all buttons as not being in "new press" state
     pigun_button_newpress = 0;
-
+    
     for (int i = 0; i < 8; i++) {
 
         if (bcm2835_gpio_eds(pigun_button_pin[i])) {
@@ -235,10 +234,16 @@ static void video_buffer_callback(MMAL_PORT_T* port, MMAL_BUFFER_HEADER_T* buffe
             bcm2835_gpio_write(PIN_OUT_CAL, LOW); // turn off the LED
         }
         else if (pigun_state == 0) {
-            // TODO: fire the solenoid on some other pin?
 
+            // fire the solenoid on its pin
+            if (pigun_solenoid_ready == 0) {
+                pigun_solenoid_ready = 1; // number of frames that the solenoid will stay polarised after shooting
+                bcm2835_gpio_write(PIN_OUT_SOL, HIGH);
+            }
         }
     }
+
+    if (pigun_solenoid_ready > 0) pigun_solenoid_ready--;
     // *********************************************************************
     // *********************************************************************
 
@@ -568,6 +573,8 @@ void* pigun_cycle(void* nullargs) {
 
     // normal state
     pigun_state = 0;
+    pigun_solenoid_ready = 0;
+
 
     // setup the pins for LED output (error, calibration, ...)
     bcm2835_gpio_fsel(PIN_OUT_ERR, BCM2835_GPIO_FSEL_OUTP); bcm2835_gpio_write(PIN_OUT_ERR, LOW);

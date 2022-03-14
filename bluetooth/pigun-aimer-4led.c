@@ -36,16 +36,21 @@ void pigun_calculate_aim() {
 	// check out the mathematica notebook for some more insight
 	float dy = (y1 - y2);
 	float dxy = x1 * y2 - x2 * y1;
-	float d1 = 1.0 / (x4 * dy + dxy - x1 * y4 + x2 * y4));
-	aim_x = (dy * (PIGUN_RES_X / 2) + (x2 - x1) * (PIGUN_RES_Y / 2) + dxy * cmat[2]) * d1;
+	float d1 = 1.0 / (x4 * dy + dxy - x1 * y4 + x2 * y4);
+	aim_x = (dy * (PIGUN_RES_X / 2) + (x2 - x1) * (PIGUN_RES_Y / 2) + dxy) * d1;
 
 	dy = (y1 - y3);
 	dxy = x1 * y3 - x3 * y1;
 	d1 = 1.0 / (x4 * dy + dxy - x1 * y4 + x3 * y4);
 	aim_y = (dy * (PIGUN_RES_X / 2) + (x3 - x1) * (PIGUN_RES_Y / 2) + dxy) * d1;
 
-	aim_x += pigun_aimOffset_x;
-	aim_y += pigun_aimOffset_y;
+	// save the normalised aim position before messing with it
+	pigun_aim_norm.x = aim_x;
+	pigun_aim_norm.y = aim_y;
+
+	// apply calibration
+	aim_x = (aim_x - pigun_cal_topleft.x) / (pigun_cal_lowright.x - pigun_cal_topleft.x);
+	aim_y = (aim_y - pigun_cal_topleft.y) / (pigun_cal_lowright.y - pigun_cal_topleft.y);
 
 	// clamp between 0 and 1
 	aim_x = (aim_x < 0) ? 0 : aim_x;
@@ -53,8 +58,9 @@ void pigun_calculate_aim() {
 	aim_y = (aim_y < 0) ? 0 : aim_y;
 	aim_y = (aim_y > 1) ? 1 : aim_y;
 
-	global_pigun_report.x = (short)((2 * x - 1) * 32767);
-	global_pigun_report.y = (short)((2 * y - 1) * 32767);
+	// write in report
+	global_pigun_report.x = (short)((2 * aim_x - 1) * 32767);
+	global_pigun_report.y = (short)((2 * aim_y - 1) * 32767);
 }
 
 
@@ -75,9 +81,9 @@ void pigun_compute_4corners(Peak* ABCD, float aspectRatio, float* CMatrix) {
 	// build the transformation matrix using the 4 points
 	// check out the mathematica notebook for some more insight
 	float d1 = 1.0 / (x4 * (y1 - y2) + x1 * (y2 - y4) + x2 * (y4 - y1));
-	CMatrix[0] = (y1 - y2) * d1;
+	CMatrix[0] = (y1 - y2) * d1; // dy
 	CMatrix[1] = (x2 - x1) * d1;
-	CMatrix[2] = (x1 * y2 - x2 * y1) * d1;
+	CMatrix[2] = (x1 * y2 - x2 * y1) * d1; // dxy
 
 	float d2 = 1.0 / (-x3 * y1 + x4 * y1 + x1 * y3 - x4 * y3 - x1 * y4 + x3 * y4);
 	CMatrix[3] = (y1 - y3) * d2;
