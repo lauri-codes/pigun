@@ -237,7 +237,7 @@ static void video_buffer_callback(MMAL_PORT_T* port, MMAL_BUFFER_HEADER_T* buffe
 
             // fire the solenoid on its pin
             if (pigun_solenoid_ready == 0) {
-                pigun_solenoid_ready = 1; // number of frames that the solenoid will stay polarised after shooting
+                pigun_solenoid_ready = 1; // WARNING: number of frames that the solenoid will stay polarised after shooting
                 bcm2835_gpio_write(PIN_OUT_SOL, HIGH);
             }
         }
