@@ -48,6 +48,7 @@ pigun_report_t global_pigun_report;
 // List of gpio code that will be used as the 8 buttons
 int pigun_button_pin[8] = { PIN_TRG,PIN_RLD,PIN_AX3,PIN_AX4 ,PIN_AX5 , PIN_AX6 , PIN_AX7 ,PIN_CAL };
 
+
 // counters for each button
 uint8_t pigun_button_holder[8] = { 0,0,0,0,0,0,0,0 };
 // a bit is set to 1 if the button was just pressed
@@ -217,6 +218,7 @@ static void video_buffer_callback(MMAL_PORT_T* port, MMAL_BUFFER_HEADER_T* buffe
 
     if ((pigun_button_newpress >> 7) & 1) { // if CAL button was just pressed
 
+        bcm2835_gpio_write(PIN_OUT_CAL, HIGH); // turn on the LED
         pigun_state = 1; // next trigger pull marks top-left calibration point
     }
     else if (pigun_button_newpress & 1) { // if TRIGGER was just pressed
@@ -230,6 +232,7 @@ static void video_buffer_callback(MMAL_PORT_T* port, MMAL_BUFFER_HEADER_T* buffe
             // set the low-right calibration point
             pigun_cal_lowright = pigun_aim_norm;
             pigun_state = 0;
+            bcm2835_gpio_write(PIN_OUT_CAL, LOW); // turn off the LED
         }
         else if (pigun_state == 0) {
             // TODO: fire the solenoid on some other pin?
@@ -556,27 +559,36 @@ void* pigun_cycle(void* nullargs) {
     }
 #endif
 
-    // Initialize the camera system
-    int error = pigun_mmal_init();
-    if (error != 0) {
-        return NULL;
-    }
-
-    // normal state
-    pigun_state = 0;
-    
-
-    // allocate peaks
-    pigun_peaks = (Peak*)calloc(4, sizeof(Peak));
-
     // GPIO system
     if (!bcm2835_init()) {
         printf("PIGUN ERROR: failed to init BCM2835!\n");
         return NULL;
     }
+    printf("PIGUN: BCM2835 started.\n");
+
+    // normal state
+    pigun_state = 0;
+
+    // setup the pins for LED output (error, calibration, ...)
+    bcm2835_gpio_fsel(PIN_OUT_ERR, BCM2835_GPIO_FSEL_OUTP); bcm2835_gpio_write(PIN_OUT_ERR, LOW);
+    bcm2835_gpio_fsel(PIN_OUT_CAL, BCM2835_GPIO_FSEL_OUTP); bcm2835_gpio_write(PIN_OUT_CAL, LOW);
+    bcm2835_gpio_fsel(PIN_OUT_SOL, BCM2835_GPIO_FSEL_OUTP); bcm2835_gpio_write(PIN_OUT_SOL, LOW);
 
 
+    // Initialize the camera system
+    int error = pigun_mmal_init();
+    if (error != 0) {
+        bcm2835_gpio_write(PIN_LED_ERR, HIGH);
+        return NULL;
+    }
+    printf("PIGUN: MMAL started.\n");
 
+
+    // allocate peaks
+    pigun_peaks = (Peak*)calloc(4, sizeof(Peak));
+
+
+    // setup the pins for input buttons
     for (int i = 0; i < 8; ++i) {
         bcm2835_gpio_fsel(pigun_button_pin[i], BCM2835_GPIO_FSEL_INPT);   // set pin as INPUT
         bcm2835_gpio_set_pud(pigun_button_pin[i], BCM2835_GPIO_PUD_UP);   // give it a pullup resistor

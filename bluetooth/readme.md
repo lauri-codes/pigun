@@ -28,12 +28,15 @@ PIGUN main code is compiled with the following commands:
 ```
 make bluetooth
 make pigun
-make pigun-XXX # like pigun-dummy
+make pigun-detector-XXX
+make pigun-aimer-XXX
 make link
 ```
 
-The detection module of choice (pigun-XXX) has to be defined in the makefile, and it is supposed to compile to `pigun_kernel.o`.
-The dummy module does nothing at all.
+The detection module of choice (pigun-detector-XXX) has to be defined in the makefile, and it is supposed to compile to `pigun_detector.o`.
+Similarly, the aimer module of choice (pigun-aimer-XXX) has to be defined in the makefile, and it is supposed to compile to `pigun_aimer.o`.
+
+The dummy module includes both a dummy detector and aimer which do nothing at all, and compiles to `pigun_kernel.o` while removing any other detector and aimer object file.
 
 ## Compiler Flags
 
@@ -43,14 +46,18 @@ The dummy module does nothing at all.
 
 ## Detection Module
 
-A detection module must define three functions:
+A detection module must define these functions:
 
 - `int pigun_detect(unsigned char* data)`
-- `void pigun_calculate_aim()`
 - `void pigun_preview(MMAL_BUFFER_HEADER_T* output, MMAL_BUFFER_HEADER_T* source)`
 
 `pigun_preview` is required when compiling with PIGUN_PREVIEW defined.
 
 
+## Aimer Module
 
+The aimer module must define:
 
+- `void pigun_calculate_aim()`
+
+which has to compute the aiming position (x,y) and write it to the HID report.
