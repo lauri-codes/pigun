@@ -97,15 +97,13 @@ vector<pair<int, int> > bfs(int idx, unsigned char* data, const float& threshold
  * By creating a vector that points from the left peak to the left peak (=a), and
  * taking the cross product of this vector with the out-of-screen vector (=c), we
  * can create a new artificial axis (=b).
- *
- * NOTE: This emulation expects a 16:9 aspect ratio.
  */
 void emulateFourCorners()
 {
     Vector3f bottomLeftVec(pigun_peaks[1].col, pigun_peaks[1].row, 0);
     Vector3f bottomRightVec(pigun_peaks[3].col, pigun_peaks[3].row, 0);
     Vector3f a = bottomRightVec - bottomLeftVec;
-    Vector3f c(0, 0, 9.0/16.0);
+    Vector3f c(0, 0, 1);
     Vector3f b = a.cross(c);
     Vector3f topLeftVec = bottomLeftVec + b;
     Vector3f topRightVec = bottomRightVec + b;
@@ -126,7 +124,12 @@ extern "C" {
      */
     int pigun_detect(unsigned char* data) {
         // These parameters have to be tuned to optimize the search
-        const unsigned int nBlobs = 2;        // How many blobs to search
+        // How many blobs to search
+#ifdef PIGUN_FOUR_LEDS
+        const unsigned int nBlobs = 4;
+#else
+        const unsigned int nBlobs = 2;
+#endif
         const unsigned int dx = 4;            // How many pixels are skipped in x direction
         const unsigned int dy = 4;            // How many pixels are skipped in y direction
         const unsigned int minBlobSize = 5;   // Have many pixels does a blob have to have to be considered valid
@@ -190,7 +193,6 @@ extern "C" {
             // Calculate intensity weighted mean coordinates of blobs
             float meanX = float(sumX) / sumVal;
             float meanY = float(sumY) / sumVal;
-            //cout << "Blob in location: " << meanX << ", " << meanY << " -- " << sumVal << endl;
 
             // Store in global pigun_peaks variable
             pigun_peaks[iBlob].row = meanY;
@@ -199,21 +201,23 @@ extern "C" {
             ++iBlob;
         }
 
-        // Store the bottom peaks
-        Peak bottomLeftPeak, bottomRightPeak;
-        if (pigun_peaks[0].col < pigun_peaks[1].col) {
-            bottomLeftPeak = pigun_peaks[0];
-            bottomRightPeak = pigun_peaks[1];
+        // Two peak mode: we detect B, D, emulate A and B
+        if (nBlobs == 2) {
+            Peak bottomLeftPeak, bottomRightPeak;
+            if (pigun_peaks[0].col < pigun_peaks[1].col) {
+                bottomLeftPeak = pigun_peaks[0];
+                bottomRightPeak = pigun_peaks[1];
+            }
+            else {
+                bottomLeftPeak = pigun_peaks[1];
+                bottomRightPeak = pigun_peaks[0];
+            }
+            pigun_peaks[1] = bottomLeftPeak;
+            pigun_peaks[3] = bottomRightPeak;
+            emulateFourCorners();
+        // Four peak mode: we detect all four peaks
+        } else if (blobs == 4) {
         }
-        else {
-            bottomLeftPeak = pigun_peaks[1];
-            bottomRightPeak = pigun_peaks[0];
-        }
-        pigun_peaks[1] = bottomLeftPeak;
-        pigun_peaks[3] = bottomRightPeak;
-
-        // Add the missing peaks
-        emulateFourCorners();
     }
 
 
