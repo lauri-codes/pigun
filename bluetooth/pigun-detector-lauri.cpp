@@ -235,7 +235,7 @@ extern "C" {
                     minIndex = j;
                 }
             }
-            peaks.push_back({.row = pigun_peaks[j].row, .col = pigun_peaks[j].col})
+            peaks.push_back({.row = pigun_peaks[j].row, .col = pigun_peaks[j].col});
         }
 
         // Two peak mode: emulate A and C
