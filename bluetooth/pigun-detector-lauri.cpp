@@ -224,7 +224,7 @@ extern "C" {
         // Order peaks
         vector<Peak> peaks;
         for (int i = 0; i < nBlobs; ++i) {
-            Vector2f corner = corners[j];
+            Vector2f corner = corners[i];
             for (int j = 0; j < nBlobs; ++j) {
                 Vector2f peak(pigun_peaks[j].col, pigun_peaks[j].row);
                 int minIndex = 0;
@@ -235,7 +235,8 @@ extern "C" {
                     minIndex = j;
                 }
             }
-            peaks.push_back({.row = pigun_peaks[j].row, .col = pigun_peaks[j].col});
+            Peak a = {.row = pigun_peaks[j].row, .col = pigun_peaks[j].col};
+            peaks.push_back(a);
         }
 
         // Two peak mode: emulate A and C
