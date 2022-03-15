@@ -33,10 +33,10 @@ using namespace Eigen;
 
 vector<bool> CHECKED(PIGUN_RES_X* PIGUN_RES_Y, false);			// Boolean array for storing which pixel locations have been checked in the blob detection
 vector<Vector2f> corners;
-corners.push_back(Vector2f(0, 1));
-corners.push_back(Vector2f(1, 1));
-corners.push_back(Vector2f(1, 0));
-corners.push_back(Vector2f(0, 1));
+corners.push_back(Vector2f(0, PIGUN_RES_X));
+corners.push_back(Vector2f(PIGUN_RES_Y PIGUN_RES_X));
+corners.push_back(Vector2f(PIGUN_RES_Y, 0));
+corners.push_back(Vector2f(0, PIGUN_RES_X));
 
 
 /**
@@ -222,13 +222,13 @@ extern "C" {
         }
 
         // Order peaks
-        vector<Peaks> peaks;
+        vector<Peak> peaks;
         for (int i = 0; i < nBlobs; ++i) {
             Vector2f corner = corners[j];
-            for (int j = 0; j < bBlobs; ++j) {
+            for (int j = 0; j < nBlobs; ++j) {
                 Vector2f peak(pigun_peaks[j].col, pigun_peaks[j].row);
-                int minIndex;
-                double minDistance;
+                int minIndex = 0;
+                double minDistance = PIGUN_RES_X;
                 double distance = (peak-corner).norm();
                 if (distance < minDistance) {
                     minDistance = distance;
