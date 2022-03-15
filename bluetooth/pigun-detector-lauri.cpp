@@ -216,7 +216,7 @@ extern "C" {
             pigun_peaks[3] = bottomRightPeak;
             emulateFourCorners();
         // Four peak mode: we detect all four peaks
-        } else if (blobs == 4) {
+        } else if (nBlobs == 4) {
         }
     }
 
