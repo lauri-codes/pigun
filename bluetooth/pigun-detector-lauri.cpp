@@ -32,6 +32,11 @@ using namespace std;
 using namespace Eigen;
 
 vector<bool> CHECKED(PIGUN_RES_X* PIGUN_RES_Y, false);			// Boolean array for storing which pixel locations have been checked in the blob detection
+vector<Vector2f> corners;
+corners.push_back(Vector2f(0, 1));
+corners.push_back(Vector2f(1, 1));
+corners.push_back(Vector2f(1, 0));
+corners.push_back(Vector2f(0, 1));
 
 
 /**
@@ -91,15 +96,30 @@ vector<pair<int, int> > bfs(int idx, unsigned char* data, const float& threshold
 }
 
 /**
- * Whenever only two peaks are present, artificially adds the missing ones
- * using an approximation.
+ * Whenever only two peaks are present, sorts them correctly and artificially
+ * adds the missing ones using an approximation.
  *
  * By creating a vector that points from the left peak to the left peak (=a), and
  * taking the cross product of this vector with the out-of-screen vector (=c), we
  * can create a new artificial axis (=b).
  */
-void emulateFourCorners()
+void handleTwoPeaks()
 {
+    // First order the two peaks correctly: we cannot assume that they are
+    // ordered by default.
+    Peak bottomLeftPeak, bottomRightPeak;
+    if (pigun_peaks[0].col < pigun_peaks[1].col) {
+        bottomLeftPeak = pigun_peaks[0];
+        bottomRightPeak = pigun_peaks[1];
+    }
+    else {
+        bottomLeftPeak = pigun_peaks[1];
+        bottomRightPeak = pigun_peaks[0];
+    }
+    pigun_peaks[1] = bottomLeftPeak;
+    pigun_peaks[3] = bottomRightPeak;
+
+    // Add the missing two peaks.
     Vector3f bottomLeftVec(pigun_peaks[1].col, pigun_peaks[1].row, 0);
     Vector3f bottomRightVec(pigun_peaks[3].col, pigun_peaks[3].row, 0);
     Vector3f a = bottomRightVec - bottomLeftVec;
@@ -201,22 +221,26 @@ extern "C" {
             ++iBlob;
         }
 
-        // Two peak mode: we detect B, D, emulate A and B
+        // Order peaks
+        vector<Peaks> peaks;
+        for (int i = 0; i < nBlobs; ++i) {
+            Vector2f corner = corners[j];
+            for (int j = 0; j < bBlobs; ++j) {
+                Vector2f peak(pigun_peaks[j].col, pigun_peaks[j].row);
+                int minIndex;
+                double minDistance;
+                double distance = (peak-corner).norm();
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    minIndex = j;
+                }
+            }
+            peaks.push_back({.row = pigun_peaks[j].row, .col = pigun_peaks[j].col})
+        }
+
+        // Two peak mode: emulate A and C
         if (nBlobs == 2) {
-            Peak bottomLeftPeak, bottomRightPeak;
-            if (pigun_peaks[0].col < pigun_peaks[1].col) {
-                bottomLeftPeak = pigun_peaks[0];
-                bottomRightPeak = pigun_peaks[1];
-            }
-            else {
-                bottomLeftPeak = pigun_peaks[1];
-                bottomRightPeak = pigun_peaks[0];
-            }
-            pigun_peaks[1] = bottomLeftPeak;
-            pigun_peaks[3] = bottomRightPeak;
-            emulateFourCorners();
-        // Four peak mode: we detect all four peaks
-        } else if (nBlobs == 4) {
+            handleTwoPeaks();
         }
     }
 
