@@ -88,15 +88,13 @@ extern MMAL_PORT_T *port_prv_in1;
 // Describes a peak in the camera image
 typedef struct Peak Peak;
 struct Peak {
-
-   // 0->struct is unused, 1->peak found
-   unsigned short found;
-
-   float row, col;
+   float row;
+   float col;
    float maxI;
    float total;
    float tRow, tCol;
-
+   // 0->struct is unused, 1->peak found
+   unsigned short found;
 };
 
 
