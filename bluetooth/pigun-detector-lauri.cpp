@@ -224,8 +224,8 @@ extern "C" {
         MatrixXf corners(4, 2);
         corners << 0, 0,
             PIGUN_RES_Y, 0,
-            0, PIGUN_RES_X;
-            PIGUN_RES_Y, PIGUN_RES_X,
+            0, PIGUN_RES_X,
+            PIGUN_RES_Y, PIGUN_RES_X;
         vector<Peak> peaks;
         for (int i = 0; i < nBlobs; ++i) {
             Vector2f corner = corners.row(i);
@@ -242,8 +242,10 @@ extern "C" {
             Peak a = {.row = pigun_peaks[minIndex].row, .col = pigun_peaks[minIndex].col};
             peaks.push_back(a);
         }
-        for (auto &peak : peaks) {
-            cout << peak.col << ", " << peak.row << endl;
+        for (int i = 0; i < peaks.size(); ++i) {
+            cout << peaks[i].col << ", " << peaks[i].row << endl;
+            pigun_peaks[i].col = peaks[i].col;
+            pigun_peaks[i].row = peaks[i].row;
         }
         cout << endl;
 
