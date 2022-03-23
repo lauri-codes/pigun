@@ -243,11 +243,9 @@ extern "C" {
             peaks.push_back(a);
         }
         for (int i = 0; i < peaks.size(); ++i) {
-            cout << peaks[i].col << ", " << peaks[i].row << endl;
             pigun_peaks[i].col = peaks[i].col;
             pigun_peaks[i].row = peaks[i].row;
         }
-        cout << endl;
 
         // Two peak mode: emulate A and C
         if (nBlobs == 2) {
