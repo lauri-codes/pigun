@@ -33,10 +33,6 @@ using namespace Eigen;
 
 vector<bool> CHECKED(PIGUN_RES_X* PIGUN_RES_Y, false);			// Boolean array for storing which pixel locations have been checked in the blob detection
 MatrixXf corners(2, 4);
-//corners << 0, PIGUN_RES_X,
-    //PIGUN_RES_Y PIGUN_RES_X,
-    //PIGUN_RES_Y, 0,
-    //0, PIGUN_RES_X;
 
 /**
  * Performs a breadth-first search starting from the given starting index and
@@ -221,6 +217,10 @@ extern "C" {
         }
 
         // Order peaks
+        corners << 0, PIGUN_RES_X,
+            PIGUN_RES_Y PIGUN_RES_X,
+            PIGUN_RES_Y, 0,
+            0, PIGUN_RES_X;
         vector<Peak> peaks;
         for (int i = 0; i < nBlobs; ++i) {
             Vector2f corner = corners.row(i);
