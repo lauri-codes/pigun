@@ -218,7 +218,7 @@ extern "C" {
 
         // Order peaks
         corners << 0, PIGUN_RES_X,
-            PIGUN_RES_Y PIGUN_RES_X,
+            PIGUN_RES_Y, PIGUN_RES_X,
             PIGUN_RES_Y, 0,
             0, PIGUN_RES_X;
         vector<Peak> peaks;
