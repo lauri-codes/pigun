@@ -215,12 +215,17 @@ extern "C" {
             ++iBlob;
         }
 
-        // Order peaks
+        // Order peaks. The ordering is based on the distance of the peaks to
+        // the screen corners:
+        // Peak closest to top-left corner = A
+        // Peak closest to bottom-left corner = B
+        // Peak closest to top-right corner = C
+        // Peak closest to bottom-right corner = D
         MatrixXf corners(4, 2);
-        corners << 0, PIGUN_RES_X,
-            PIGUN_RES_Y, PIGUN_RES_X,
+        corners << 0, 0,
             PIGUN_RES_Y, 0,
             0, PIGUN_RES_X;
+            PIGUN_RES_Y, PIGUN_RES_X,
         vector<Peak> peaks;
         for (int i = 0; i < nBlobs; ++i) {
             Vector2f corner = corners.row(i);
@@ -237,6 +242,10 @@ extern "C" {
             Peak a = {.row = pigun_peaks[minIndex].row, .col = pigun_peaks[minIndex].col};
             peaks.push_back(a);
         }
+        for (auto &peak : peaks) {
+            cout << peak.col << ", " << peak.row << endl;
+        }
+        cout << endl;
 
         // Two peak mode: emulate A and C
         if (nBlobs == 2) {
