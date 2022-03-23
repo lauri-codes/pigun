@@ -101,17 +101,17 @@ void emulateFourPeaks()
 {
     // First order the two peaks correctly: we cannot assume that they are
     // ordered by default.
-    //Peak bottomLeftPeak, bottomRightPeak;
-    //if (pigun_peaks[0].col < pigun_peaks[1].col) {
-        //bottomLeftPeak = pigun_peaks[0];
-        //bottomRightPeak = pigun_peaks[1];
-    //}
-    //else {
-        //bottomLeftPeak = pigun_peaks[1];
-        //bottomRightPeak = pigun_peaks[0];
-    //}
-    //pigun_peaks[1] = bottomLeftPeak;
-    //pigun_peaks[3] = bottomRightPeak;
+    Peak bottomLeftPeak, bottomRightPeak;
+    if (pigun_peaks[0].col < pigun_peaks[1].col) {
+        bottomLeftPeak = pigun_peaks[0];
+        bottomRightPeak = pigun_peaks[1];
+    }
+    else {
+        bottomLeftPeak = pigun_peaks[1];
+        bottomRightPeak = pigun_peaks[0];
+    }
+    pigun_peaks[1] = bottomLeftPeak;
+    pigun_peaks[3] = bottomRightPeak;
 
     // Add the missing two peaks.
     Vector3f bottomLeftVec(pigun_peaks[1].col, pigun_peaks[1].row, 0);
