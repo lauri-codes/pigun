@@ -33,7 +33,6 @@ using namespace Eigen;
 
 vector<bool> CHECKED(PIGUN_RES_X* PIGUN_RES_Y, false);			// Boolean array for storing which pixel locations have been checked in the blob detection
 
-
 /**
  * Performs a breadth-first search starting from the given starting index and
  * working on the given data array. Returns a list of indices found to belong
@@ -90,6 +89,37 @@ vector<pair<int, int> > bfs(int idx, unsigned char* data, const float& threshold
     return indices;
 }
 
+/**
+ * Whenever only two peaks are present, sorts them correctly and artificially
+ * adds the missing ones using an approximation.
+ *
+ * By creating a vector that points from the left peak to the left peak (=a), and
+ * taking the cross product of this vector with the out-of-screen vector (=c), we
+ * can create a new artificial axis (=b).
+ */
+void emulateFourPeaks()
+{
+    // Move the peaks: B->D, A->B.
+    pigun_peaks[3] = pigun_peaks[1];
+    pigun_peaks[1] = pigun_peaks[0];
+
+    // Add the missing two peaks.
+    Vector3f bottomLeftVec(pigun_peaks[1].col, pigun_peaks[1].row, 0);
+    Vector3f bottomRightVec(pigun_peaks[3].col, pigun_peaks[3].row, 0);
+    Vector3f a = bottomRightVec - bottomLeftVec;
+    Vector3f c(0, 0, 1);
+    Vector3f b = a.cross(c);
+    Vector3f topLeftVec = bottomLeftVec + b;
+    Vector3f topRightVec = bottomRightVec + b;
+    Peak topLeftPeak, topRightPeak;
+    topLeftPeak.col = std::max(topLeftVec.x(), 0.0f);
+    topLeftPeak.row = std::max(topLeftVec.y(), 0.0f);
+    topRightPeak.col = std::max(topRightVec.x(), 0.0f);
+    topRightPeak.row = std::max(topRightVec.y(), 0.0f);
+    pigun_peaks[0] = topLeftPeak;
+    pigun_peaks[2] = topRightPeak;
+}
+
 extern "C" {
 
     /**
@@ -98,7 +128,12 @@ extern "C" {
      */
     int pigun_detect(unsigned char* data) {
         // These parameters have to be tuned to optimize the search
-        const unsigned int nBlobs = 2;        // How many blobs to search
+        // How many blobs to search
+#ifdef PIGUN_FOUR_LEDS
+        const unsigned int nBlobs = 4;
+#else
+        const unsigned int nBlobs = 2;
+#endif
         const unsigned int dx = 4;            // How many pixels are skipped in x direction
         const unsigned int dy = 4;            // How many pixels are skipped in y direction
         const unsigned int minBlobSize = 5;   // Have many pixels does a blob have to have to be considered valid
@@ -162,7 +197,6 @@ extern "C" {
             // Calculate intensity weighted mean coordinates of blobs
             float meanX = float(sumX) / sumVal;
             float meanY = float(sumY) / sumVal;
-            //cout << "Blob in location: " << meanX << ", " << meanY << " -- " << sumVal << endl;
 
             // Store in global pigun_peaks variable
             pigun_peaks[iBlob].row = meanY;
@@ -171,26 +205,42 @@ extern "C" {
             ++iBlob;
         }
 
-        // Order the peaks: a=top left, b=bottom left, c=top right, d=bottom_right
-        Peak aa, bb, cc, dd;
-        if (pigun_peaks[0].col < pigun_peaks[1].col) {
-            bb = pigun_peaks[0];
-            dd = pigun_peaks[1];
+        // Order peaks. The ordering is based on the distance of the peaks to
+        // the screen corners:
+        // Peak closest to top-left corner = A
+        // Peak closest to bottom-left corner = B
+        // Peak closest to top-right corner = C
+        // Peak closest to bottom-right corner = D
+        MatrixXf corners(4, 2);
+        corners << 0, 0,
+            PIGUN_RES_Y, 0,
+            0, PIGUN_RES_X,
+            PIGUN_RES_Y, PIGUN_RES_X;
+        vector<Peak> peaks;
+        for (int i = 0; i < nBlobs; ++i) {
+            Vector2f corner = corners.row(i);
+            int minIndex = 0;
+            double minDistance = PIGUN_RES_X;
+            for (int j = 0; j < nBlobs; ++j) {
+                Vector2f peak(pigun_peaks[j].col, pigun_peaks[j].row);
+                double distance = (peak-corner).norm();
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    minIndex = j;
+                }
+            }
+            Peak a = {.row = pigun_peaks[minIndex].row, .col = pigun_peaks[minIndex].col};
+            peaks.push_back(a);
         }
-        else {
-            bb = pigun_peaks[1];
-            dd = pigun_peaks[0];
+        for (int i = 0; i < peaks.size(); ++i) {
+            pigun_peaks[i].col = peaks[i].col;
+            pigun_peaks[i].row = peaks[i].row;
         }
-        aa.row = std::max(bb.row - 30, 0.0f);
-        aa.col = bb.col;
-        cc.row = std::max(dd.row - 30, 0.0f);
-        cc.col = dd.col;
 
-        // Calculate transformation matrix from camera to rectangle
-        pigun_peaks[0] = aa;
-        pigun_peaks[1] = bb;
-        pigun_peaks[2] = cc;
-        pigun_peaks[3] = dd;
+        // Two peak mode: emulate A and C
+        if (nBlobs == 2) {
+            emulateFourPeaks();
+        }
     }
 
 
