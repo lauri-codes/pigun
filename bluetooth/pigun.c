@@ -148,7 +148,15 @@ static void video_buffer_callback(MMAL_PORT_T* port, MMAL_BUFFER_HEADER_T* buffe
     MMAL_POOL_T* pool = (MMAL_POOL_T*)port->userdata;
 
     // call the peak detector function
-    pigun_detect(buffer->data);
+    if (pigun_detect(buffer->data)) {
+        // if there was a detector error, light the error LED
+        bcm2835_gpio_write(PIN_OUT_ERR, HIGH);
+    }
+    else {
+
+        bcm2835_gpio_write(PIN_OUT_ERR, LOW);
+    }
+
     // the peaks are supposed to be ordered by the detector function
 
     // TODO: maybe add a mutex/semaphore so that the main bluetooth thread
@@ -244,6 +252,7 @@ static void video_buffer_callback(MMAL_PORT_T* port, MMAL_BUFFER_HEADER_T* buffe
     }
 
     if (pigun_solenoid_ready > 0) pigun_solenoid_ready--;
+    
     // *********************************************************************
     // *********************************************************************
 
@@ -574,7 +583,10 @@ void* pigun_cycle(void* nullargs) {
     // normal state
     pigun_state = 0;
     pigun_solenoid_ready = 0;
-
+    
+    // reset calibration
+    pigun_cal_topleft.x = pigun_cal_topleft.y = 0;
+    pigun_cal_lowright.x = pigun_cal_lowright.y = 1;
 
     // setup the pins for LED output (error, calibration, ...)
     bcm2835_gpio_fsel(PIN_OUT_ERR, BCM2835_GPIO_FSEL_OUTP); bcm2835_gpio_write(PIN_OUT_ERR, LOW);
@@ -592,7 +604,7 @@ void* pigun_cycle(void* nullargs) {
 
 
     // allocate peaks
-    pigun_peaks = (Peak*)calloc(4, sizeof(Peak));
+    pigun_peaks = (Peak*)calloc(10, sizeof(Peak));
 
 
     // setup the pins for input buttons
