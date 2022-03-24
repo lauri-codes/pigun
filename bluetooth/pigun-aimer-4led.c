@@ -97,9 +97,6 @@ void pigun_compute_4corners(Peak* ABCD, float aspectRatio, float* CMatrix) {
 
 	// all that is left to do is cmat.{x,y,1} = aiming point
 	// x,y is the aiming point in camera space, which always is in the middle (XRES/2, YRES/2)
-
-
-
 }
 */
 
