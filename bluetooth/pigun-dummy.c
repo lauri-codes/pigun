@@ -42,9 +42,9 @@ void pigun_calculate_aim() {
 	}
 
 
-	// including the calibration...
-	x += pigun_aimOffset_x;
-	y += pigun_aimOffset_y;
+	// including the calibration... this is wrong!
+	//x += pigun_aimOffset_x;
+	//y += pigun_aimOffset_y;
 
 
 	global_pigun_report.x = (short)((2 * x - 1) * 32767);
