@@ -37,9 +37,9 @@ int blob_detect(int idx, unsigned char* data, const unsigned int blobID, const f
     
     unsigned int blobSize = 0;
     unsigned int x, y;
-    double sumVal = 0;
-    double sumX = 0, sumY = 0;
-    int maxI = 0;
+    unsigned long sumVal = 0;
+    unsigned long sumX = 0, sumY = 0;
+    unsigned int maxI = 0;
 
     // put the first px in the queue
     unsigned int qSize = 1; // length of the queue of idx to check
@@ -52,15 +52,15 @@ int blob_detect(int idx, unsigned char* data, const unsigned int blobID, const f
         // check the last element on the list
         qSize--;
         int current = pxbuffer[qSize];
-
+        
         // do the blob position computation
         
         // Transform flattened index to 2D coordinate
-        x = idx % PIGUN_RES_X;
-        y = idx / PIGUN_RES_X;
+        x = current % PIGUN_RES_X;
+        y = current / PIGUN_RES_X;
         sumVal += data[current];
-        sumX += data[current] * x;
-        sumY += data[current] * y;
+        sumX += (unsigned long)(data[current] * x);
+        sumY += (unsigned long)(data[current] * y);
         if (data[current] > maxI) maxI = data[current];
         
         blobSize++;
@@ -68,28 +68,28 @@ int blob_detect(int idx, unsigned char* data, const unsigned int blobID, const f
         // check neighbours
         int other;
         other = current - PIGUN_RES_X;
-        if (other >= 0 && !checked[other] && data[other] >= threshold) {
+        if (other >= 0 && !checked[other] && data[other] >= threshold && y > 0) {
             pxbuffer[qSize] = other;
             qSize++;
             checked[other] = 1;
         }
 
         other = current + PIGUN_RES_X;
-        if (other >= 0 && !checked[other] && data[other] >= threshold) {
+        if (other >= 0 && !checked[other] && data[other] >= threshold && y < PIGUN_RES_Y-1) {
             pxbuffer[qSize] = other;
             qSize++;
             checked[other] = 1;
         }
 
         other = current - 1;
-        if (other >= 0 && !checked[other] && data[other] >= threshold) {
+        if (other >= 0 && !checked[other] && data[other] >= threshold && x > 0) {
             pxbuffer[qSize] = other;
             qSize++;
             checked[other] = 1;
         }
 
         other = current + 1;
-        if (other >= 0 && !checked[other] && data[other] >= threshold) {
+        if (other >= 0 && !checked[other] && data[other] >= threshold && x < PIGUN_RES_X-1) {
             pxbuffer[qSize] = other;
             qSize++;
             checked[other] = 1;
@@ -99,13 +99,16 @@ int blob_detect(int idx, unsigned char* data, const unsigned int blobID, const f
     if (blobSize < minBlobSize) return 0;
 
     // code here => peak was good, save it
-    sumX /= sumVal;
-    sumY /= sumVal;
+    
+    //printf("peak found[%i]: %li %li -- %li -- %i --> ", blobID, sumX, sumY, sumVal, blobSize);
 
-    pigun_peaks[blobID].col = (float)sumX;
-    pigun_peaks[blobID].row = (float)sumY;
+    pigun_peaks[blobID].col = ((float)sumX) / sumVal;
+    pigun_peaks[blobID].row = ((float)sumY) / sumVal;
     pigun_peaks[blobID].maxI = (float)maxI;
-    pigun_peaks[blobID].total = (float)(sumX * PIGUN_RES_X + sumY);
+    pigun_peaks[blobID].total = (pigun_peaks[blobID].col * PIGUN_RES_X + pigun_peaks[blobID].row);
+    
+    //printf("%f %f\n", pigun_peaks[blobID].col, pigun_peaks[blobID].row);
+
     return 1;
 }
 
@@ -159,6 +162,10 @@ void emulateFourPeaks() {
     */
 int pigun_detect(unsigned char* data) {
 
+    /*FILE* fout = fopen("text.bin", "rb");
+    fread(data, sizeof(unsigned char), PIGUN_NPX, fout);
+    fclose(fout);*/
+
     //printf("detecting...\n");
     // These parameters have to be tuned to optimize the search
     // How many blobs to search
@@ -169,8 +176,8 @@ int pigun_detect(unsigned char* data) {
 #endif
     const unsigned int dx = 4;            // How many pixels are skipped in x direction
     const unsigned int dy = 4;            // How many pixels are skipped in y direction
-    const unsigned int minBlobSize = 5;   // Have many pixels does a blob have to have to be considered valid
-    const unsigned int maxBlobSize = 500; // Maximum numer of pixels for a blob
+    const unsigned int minBlobSize = 20;  // Have many pixels does a blob have to have to be considered valid
+    const unsigned int maxBlobSize =1000; // Maximum numer of pixels for a blob
     const float threshold = 130;          // The minimum threshold for pixel intensity in a blob
 
     const unsigned int nx = floor((float)(PIGUN_RES_X) / (float)(dx));
@@ -269,10 +276,22 @@ int pigun_detect(unsigned char* data) {
 void pigun_preview(MMAL_BUFFER_HEADER_T* output, MMAL_BUFFER_HEADER_T* source) {
 
     // The following line will copy the Y channel as seen by the camera
-    //memcpy(output->data, source->data, PIGUN_NPX); // copy only Y
+    memcpy(output->data, source->data, PIGUN_NPX); // copy only Y
+	for(int i=0;i<PIGUN_NPX;i++){
+        if (output->data[i] < 130)
+            output->data[i] = 0;
+        else
+            output->data[i] /= 2;
+	}
     // The following line will clean the Y channel so that only the peaks
     // etc. will be shown.
-    memset(&output->data[0], 0, PIGUN_NPX);
+    //memset(&output->data[0], 0, PIGUN_NPX);
+    
+    // save frame to file
+    //FILE* fout = fopen("text.bin", "wb");
+    //fwrite(output->data, sizeof(unsigned char), PIGUN_NPX, fout);
+    //fclose(fout);
+
 
     // Show crosshair
     output->data[PIGUN_RES_X * (int)(PIGUN_RES_Y / 2.0) + (int)(PIGUN_RES_X / 2.0)] = 255;
