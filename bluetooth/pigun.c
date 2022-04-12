@@ -224,20 +224,23 @@ static void video_buffer_callback(MMAL_PORT_T* port, MMAL_BUFFER_HEADER_T* buffe
     // *** deal with some specific buttons *** *****************************
 
     if ((pigun_button_newpress >> 7) & 1) { // if CAL button was just pressed
-
+        printf("PIGUN: Entering calibration mode\n");
         bcm2835_gpio_write(PIN_OUT_CAL, HIGH); // turn on the LED
         pigun_state = 1; // next trigger pull marks top-left calibration point
+
     }
     else if (pigun_button_newpress & 1) { // if TRIGGER was just pressed
 
         if (pigun_state == 1) {
             // set the top-left calibration point
             pigun_cal_topleft = pigun_aim_norm;
+            printf("PIGUN: Top left calibrated\n");
             pigun_state = 2;
         }
         else if (pigun_state == 2) {
             // set the low-right calibration point
             pigun_cal_lowright = pigun_aim_norm;
+            printf("PIGUN: Low right calibrated\n");
             pigun_state = 0;
             bcm2835_gpio_write(PIN_OUT_CAL, LOW); // turn off the LED
         }
