@@ -512,8 +512,8 @@ int pigun_mmal_init(void) {
     //}
     //
     // Setup automatic white balance
-    pigun_camera_awb(camera, 0);
-    pigun_camera_awb_gains(camera, 1, 1);
+    //pigun_camera_awb(camera, 0);
+    //pigun_camera_awb_gains(camera, 1, 1);
 
     // Setup blur
     pigun_camera_blur(camera, 1);
