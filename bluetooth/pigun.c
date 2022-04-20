@@ -242,7 +242,7 @@ static void video_buffer_callback(MMAL_PORT_T* port, MMAL_BUFFER_HEADER_T* buffe
             bcm2835_gpio_write(PIN_OUT_CAL, LOW); // turn off the LED
         }
         else if (pigun_state == 0) {
-
+		printf("shoot!\n");
             // fire the solenoid on its pin
             if (pigun_solenoid_ready == 0) {
                 pigun_solenoid_ready = 1; // WARNING: number of frames that the solenoid will stay polarised after shooting

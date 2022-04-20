@@ -105,7 +105,7 @@ int blob_detect(int idx, unsigned char* data, const unsigned int blobID, const f
     pigun_peaks[blobID].col = ((float)sumX) / sumVal;
     pigun_peaks[blobID].row = ((float)sumY) / sumVal;
     pigun_peaks[blobID].maxI = (float)maxI;
-    pigun_peaks[blobID].total = (pigun_peaks[blobID].col * PIGUN_RES_X + pigun_peaks[blobID].row);
+    pigun_peaks[blobID].total = (pigun_peaks[blobID].row * PIGUN_RES_X + pigun_peaks[blobID].col);
     
     //printf("%f %f\n", pigun_peaks[blobID].col, pigun_peaks[blobID].row);
 
@@ -116,8 +116,8 @@ int peak_compare(const void* a, const void* b) {
 
     Peak* A = (Peak*)a;
     Peak* B = (Peak*)b;
-
-    if (B->total < A->total) return -1;
+	// DESCENDING ORDER NOW!
+    if (B->total > A->total) return -1;
     else return 1;
 }
 
@@ -233,17 +233,53 @@ int pigun_detect(unsigned char* data) {
     // Peak closest to bottom-right corner = D
 
 #ifdef PIGUN_FOUR_LEDS
-    // 4 led mode:
-    // we can convert peak x/y to an index (stored in peak.total)
-    // and then sort the peaks ACBD (0,2,1,3)
+    /* 4 led mode:
+	
+	assuming we sort the peaks using the peak.total indexer (ascending),
+	the camera sees:
+	
+	2---3      3---2
+	|   |  OR  |   |
+	0---1      1---0
+	
+	OR any similar pattern... in the end all we know is that:
+	a. the first 2 peaks are the bottom LED bar
+	b. the last 2 are the top LED bar
+	but after sorting the ordering of top and bottom spots depends on
+	camera rotation.
+	we have to manually adjust them so that we get:
 
-    // this will sort the peaks my ascending peak.total order
-    qsort(pigun_peaks, 4, sizeof(Peak), peak_compare);
-    
-    // now the are ordered 0,1,2,3
-    Peak tmp = pigun_peaks[1];
-    pigun_peaks[1] = pigun_peaks[2];
-    pigun_peaks[2] = tmp;
+	0---1
+	|   |
+	2---3
+
+	the aimer will use these in the correct order to compute the inverse projection!
+
+	the sorting function is now modified to descending order so that
+	upper LED gets peaks 0,1 instead
+	
+	we do not know
+	and then sort the peaks ACBD (0,2,1,3)
+	*/
+
+	// this will sort the peaks in descending peak.total order
+	qsort(pigun_peaks, 4, sizeof(Peak), peak_compare);
+	
+	Peak tmp; // = pigun_peaks[1];
+
+	// now make sure 0 is the top-left
+	if(pigun_peaks[0].col > pigun_peaks[1].col){
+		tmp = pigun_peaks[0];
+		pigun_peaks[0] = pigun_peaks[1];
+		pigun_peaks[1] = tmp;
+	}
+
+	// and that 2 is the bottom-left
+	if(pigun_peaks[2].col > pigun_peaks[3].col){
+		tmp = pigun_peaks[2];
+		pigun_peaks[2] = pigun_peaks[3];
+		pigun_peaks[3] = tmp;
+	}
 
 #else
     // two blob case: flip them if 0 is right of 1
@@ -297,10 +333,10 @@ void pigun_preview(MMAL_BUFFER_HEADER_T* output, MMAL_BUFFER_HEADER_T* source) {
     output->data[PIGUN_RES_X * (int)(PIGUN_RES_Y / 2.0) + (int)(PIGUN_RES_X / 2.0)] = 255;
 
     // Show the peaks
-    output->data[PIGUN_RES_X * (int)(pigun_peaks[0].row) + (int)(pigun_peaks[0].col)] = 255;
+//    output->data[PIGUN_RES_X * (int)(pigun_peaks[0].row) + (int)(pigun_peaks[0].col)] = 255;
     output->data[PIGUN_RES_X * (int)(pigun_peaks[1].row) + (int)(pigun_peaks[1].col)] = 255;
-    output->data[PIGUN_RES_X*(int)(pigun_peaks[2].row)+(int)(pigun_peaks[2].col)] = 255;
-    output->data[PIGUN_RES_X*(int)(pigun_peaks[3].row)+(int)(pigun_peaks[3].col)] = 255;
+//    output->data[PIGUN_RES_X * (int)(pigun_peaks[2].row) + (int)(pigun_peaks[2].col)] = 255;
+//    output->data[PIGUN_RES_X * (int)(pigun_peaks[3].row) + (int)(pigun_peaks[3].col)] = 255;
 
     // Set U/V channels to single color
     memset(&output->data[PIGUN_NPX], 128, PIGUN_NPX / 2);
