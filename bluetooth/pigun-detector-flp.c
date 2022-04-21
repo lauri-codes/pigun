@@ -131,28 +131,23 @@ int peak_compare(const void* a, const void* b) {
  */
 void emulateFourPeaks() {
     
-    // Move the peaks: B->D, A->B.
-    //pigun_peaks[3] = pigun_peaks[1];
-    //pigun_peaks[1] = pigun_peaks[0];
-    // in my code the two peaks are already B,D in their right slots (1,3) and in the right order
-
-    // Add the missing two peaks.
     /*
-    bl = 1x,1y,0
-    br = 3x, 3y, 0
-    a = br-bl
-    c = 0,0,1
-    b = a x c = ay cz - az cy, az cx - ax cz,  ax cy - ay cx = ay, -ax, 0
+    * we have peaks 2,3 at this point:
+    * 0---1
+    * |   |
+    * 2---3 <-- we have these two
+    *
+    * need to create 0,1 from them!
     */
 
-    float ax = pigun_peaks[3].col - pigun_peaks[1].col;
-    float ay = pigun_peaks[3].row - pigun_peaks[1].row;
+    float ax = pigun_peaks[3].col - pigun_peaks[2].col;
+    float ay = pigun_peaks[3].row - pigun_peaks[2].row;
 
-    pigun_peaks[0].col = pigun_peaks[1].col + ay; if (pigun_peaks[0].col < 0) pigun_peaks[0].col = 0;
-    pigun_peaks[0].row = pigun_peaks[1].row - ax; if (pigun_peaks[0].row < 0) pigun_peaks[0].row = 0;
+    pigun_peaks[0].col = pigun_peaks[2].col + ay;// if (pigun_peaks[0].col < 0) pigun_peaks[0].col = 0;
+    pigun_peaks[0].row = pigun_peaks[2].row - ax;// if (pigun_peaks[0].row < 0) pigun_peaks[0].row = 0;
 
-    pigun_peaks[2].col = pigun_peaks[3].col + ay; if (pigun_peaks[2].col < 0) pigun_peaks[2].col = 0;
-    pigun_peaks[2].row = pigun_peaks[3].row - ax; if (pigun_peaks[2].row < 0) pigun_peaks[2].row = 0;
+    pigun_peaks[1].col = pigun_peaks[3].col + ay;// if (pigun_peaks[1].col < 0) pigun_peaks[1].col = 0;
+    pigun_peaks[1].row = pigun_peaks[3].row - ax;// if (pigun_peaks[1].row < 0) pigun_peaks[1].row = 0;
 }
 
 
@@ -233,48 +228,44 @@ int pigun_detect(unsigned char* data) {
     // Peak closest to bottom-right corner = D
 
 #ifdef PIGUN_FOUR_LEDS
-    /* 4 led mode:
+    
+    /* 
+        4 LED MODE:
 	
-	assuming we sort the peaks using the peak.total indexer (ascending),
-	the camera sees:
+        assuming we sort the peaks using the peak.total indexer (ascending),
+        the camera sees:
 	
-	2---3      3---2
-	|   |  OR  |   |
-	0---1      1---0
+        2---3      3---2
+        |   |  OR  |   |
+        0---1      1---0
 	
-	OR any similar pattern... in the end all we know is that:
-	a. the first 2 peaks are the bottom LED bar
-	b. the last 2 are the top LED bar
-	but after sorting the ordering of top and bottom spots depends on
-	camera rotation.
-	we have to manually adjust them so that we get:
+        OR any similar pattern... in the end all we know is that:
+        a. the first 2 peaks are the bottom LED bar
+        b. the last 2 are the top LED bar
+        but after sorting the ordering of top and bottom spots depends on
+        camera rotation.
+        we have to manually adjust them so that we get:
 
-	0---1
-	|   |
-	2---3
+        0---1
+        |   |
+        2---3
 
-	the aimer will use these in the correct order to compute the inverse projection!
-
-	the sorting function is now modified to descending order so that
-	upper LED gets peaks 0,1 instead
-	
-	we do not know
-	and then sort the peaks ACBD (0,2,1,3)
-	*/
+        the aimer will use these in the correct order to compute the inverse projection!
+    */
 
 	// this will sort the peaks in descending peak.total order
 	qsort(pigun_peaks, 4, sizeof(Peak), peak_compare);
 	
-	Peak tmp; // = pigun_peaks[1];
+	Peak tmp;
 
-	// now make sure 0 is the top-left
+	// now make sure 0 is the top-left of the first two peaks
 	if(pigun_peaks[0].col > pigun_peaks[1].col){
 		tmp = pigun_peaks[0];
 		pigun_peaks[0] = pigun_peaks[1];
 		pigun_peaks[1] = tmp;
 	}
 
-	// and that 2 is the bottom-left
+	// and that 2 is the bottom-left of the last two peaks
 	if(pigun_peaks[2].col > pigun_peaks[3].col){
 		tmp = pigun_peaks[2];
 		pigun_peaks[2] = pigun_peaks[3];
@@ -282,20 +273,33 @@ int pigun_detect(unsigned char* data) {
 	}
 
 #else
-    // two blob case: flip them if 0 is right of 1
-    // the two detected peaks are actually B and D - assuming the led bar is below!
-    // but they are stored in 0,1 instead of 1,3
-    if (pigun_peaks[0].col > pigun_peaks[1].col) {
-        // in this case 0,1 -> 3,1
+    /*
+        2 LED MODE:
+
+        assuming the LED bar was at the bottom of the screen,
+        we should now have peak 0 and 1 detected, in whatever order.
+
+        we have to manually adjust them so that we get:
+
+        0---1
+        |   |
+        2---3
+
+        the aimer will use these in the correct order to compute the inverse projection!
+    
+    */
+
+    // reorder 0,1 and place them in slot 2,3
+    if (pigun_peaks[0].col > pigun_peaks[1].col) { // wrong ordering
+        pigun_peaks[2] = pigun_peaks[1];
         pigun_peaks[3] = pigun_peaks[0];
     }
     else { // correct ordering
+        pigun_peaks[2] = pigun_peaks[0];
         pigun_peaks[3] = pigun_peaks[1];
-        pigun_peaks[1] = pigun_peaks[0];
     }
 
-
-    // Two peak mode: emulate A and C
+    // create the 2 extra peaks
     emulateFourPeaks();
 #endif
 
