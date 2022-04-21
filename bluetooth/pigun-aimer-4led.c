@@ -3,23 +3,31 @@
 
 
 /*
-	4 corners are:
-	A------C
-	|      |
-	|      |
-	B------D
-
-	the resulting matrix C is stored in CMatrix, linearised
-	the x,y, screen point then corresponds to
-	P = cmat . {x, y, 1} / (cmat . {x, y, 1})[z]
-	in recrangle coordinates
-	P = (0,0) => A
-	P = (1,1) => D
-	it puzzles me that there is NO dependence on the rectangle aspect ratio?!?!!!?!!1111!
-
+* at this point the peaks are:
+* 
+* 0------1
+* |      |
+* |      |
+* 2------3
+* 
+* but the inverse projection assumes the peaks are in a different order:
+* 
+* A------C
+* |      |
+* |      |
+* B------D
+* 
+* (so we just fix this in the definitions of x1,x2,...)
+* 
+* the resulting matrix C is stored in CMatrix, linearised
+* the x,y, screen point then corresponds to
+* P = cmat . {x, y, 1} / (cmat . {x, y, 1})[z]
+* in recrangle coordinates
+* P = (0,0) => A
+* P = (1,1) => D
+* it puzzles me that there is NO dependence on the rectangle aspect ratio?!
+* 
 */
-
-
 void pigun_calculate_aim() {
 
 	float aim_x, aim_y;
@@ -71,7 +79,6 @@ void pigun_calculate_aim() {
 	global_pigun_report.y = (short)((2 * aim_y - 1) * 32767);
 
 	//printf("HID report: x=%i y=%i bt=%d\n", global_pigun_report.x, global_pigun_report.y, global_pigun_report.buttons);
-
 }
 
 

@@ -274,19 +274,20 @@ int pigun_detect(unsigned char* data) {
 
 #else
     /*
-        2 LED MODE:
-
-        assuming the LED bar was at the bottom of the screen,
-        we should now have peak 0 and 1 detected, in whatever order.
-
-        we have to manually adjust them so that we get:
-
-        0---1
-        |   |
-        2---3
-
-        the aimer will use these in the correct order to compute the inverse projection!
-    
+    * 2 LED MODE:
+    * 
+    * assuming the LED bar was at the bottom of the screen,
+    * we should now have peak 0 and 1 detected, in whatever order.
+    * 
+    * we have to manually adjust them so that we get:
+    * 
+    * 0---1
+    * |   |
+    * 2---3
+    * 
+    * the aimer will use these in the correct order
+    * to compute the inverse projection!
+    * 
     */
 
     // reorder 0,1 and place them in slot 2,3
