@@ -53,7 +53,7 @@ int pigun_button_pin[8] = { PIN_TRG,PIN_RLD,PIN_AX3,PIN_AX4 ,PIN_AX5 , PIN_AX6 ,
 uint8_t pigun_button_holder[8] = { 0,0,0,0,0,0,0,0 };
 // a bit is set to 1 if the button was just pressed
 uint8_t pigun_button_newpress = 0;
-
+uint8_t pigun_button_state;
 
 // detected peaks - in order
 Peak* pigun_peaks;
@@ -103,8 +103,8 @@ MMAL_PORT_T* preview_input_port = NULL;
 
 static inline void button_pressed(int buttonID){
 
-    // it will have to be another 10 frames before the button can be pressed again
-    pigun_button_holder[buttonID] = 10;
+    // it will have to be another 5 frames before the button can be pressed again
+    pigun_button_holder[buttonID] = 5;
 
     // set the button in the HID report
     global_pigun_report.buttons |= (uint8_t)(1 << buttonID);
@@ -171,40 +171,55 @@ static void video_buffer_callback(MMAL_PORT_T* port, MMAL_BUFFER_HEADER_T* buffe
 
     // TODO: maybe add a mutex/semaphore so that the main bluetooth thread
     // will wait until this is done with the buttons before reading the HID report
+
+    /* BUTTON SYSTEM
     
+        button pins are kept HIGH by the pizero and grounded (LOW) when the user presses the physical switch
+        the bcm2835 lib detects falling edge events (FEE)
+        the FEE only registers as a button press if the button is in the released state
+        after the press is registered, the button is locked in pressed state for X frames to avoid jitter
+        once the x frames are passed, we check if the pin state is still LOW
+        when it is not low, the button becomes released
+    
+    */
+
     // make a copy of the current button state
-    uint8_t buttonsDown = global_pigun_report.buttons;
+    pigun_button_state = global_pigun_report.buttons;
     // mark all buttons as not being in "new press" state
     pigun_button_newpress = 0;
     
     for (int i = 0; i < 8; i++) {
 
+        // if the falling edge on the GPIO is detected... (button was just pressed now)
+        // AND we are allowed to register
         if (bcm2835_gpio_eds(pigun_button_pin[i])) {
-            // this happens when falling edge is detected
-
-            // record press
-            if (pigun_button_holder[i] == 0) button_pressed(i);
 
             // clear GPIO event flag
             // this is done every time the event was detected, regardless of whether the
             // event really was a valid press, otherwise the BCM2835 wont detect it again!
             bcm2835_gpio_set_eds(pigun_button_pin[i]);
 
-            // ignore the rest of the code since it is dealing with button releases
-            continue;
+            // register the press event if the button is released
+            if (pigun_button_holder[i] == 0) {
+                button_pressed(i);
+
+                // ignore the rest of the code since it is dealing with button releases
+                continue;
+            }
         }
 
-        // code here => the button was not pressed just now
+        // code here => no press event was registered for this button
         // either was was not pressed at all, or it was already pressed before this frame
 
         // if it was already pressed, check that it is still the case
-        if ((buttonsDown >> i) & 1) {
+        // (pigun_button_state is a copy of the button state from the HID report)
+        if ((pigun_button_state >> i) & 1) {
 
             // if the hold timer is expired...
             if (pigun_button_holder[i] == 0) {
                 
-                // ... and the GPIO level is high
-                if (bcm2835_gpio_lev(pigun_button_pin[i]) == 0) {
+                // ... and the GPIO level is HIGH
+                if (bcm2835_gpio_lev(pigun_button_pin[i]) == HIGH) {
 
                     // then release the button in HID report
                     global_pigun_report.buttons &= ~(uint8_t)(1 << i);
@@ -224,18 +239,20 @@ static void video_buffer_callback(MMAL_PORT_T* port, MMAL_BUFFER_HEADER_T* buffe
     // *** deal with some specific buttons *** *****************************
 
     if ((pigun_button_newpress >> 7) & 1) { // if CAL button was just pressed
-
+	printf("CAL pressed!\n");
         bcm2835_gpio_write(PIN_OUT_CAL, HIGH); // turn on the LED
         pigun_state = 1; // next trigger pull marks top-left calibration point
     }
     else if (pigun_button_newpress & 1) { // if TRIGGER was just pressed
 
         if (pigun_state == 1) {
+		printf("CAL pressed - SET 1!\n");
             // set the top-left calibration point
             pigun_cal_topleft = pigun_aim_norm;
             pigun_state = 2;
         }
         else if (pigun_state == 2) {
+		printf("CAL pressed - SET 2!\n");
             // set the low-right calibration point
             pigun_cal_lowright = pigun_aim_norm;
             pigun_state = 0;
@@ -245,13 +262,15 @@ static void video_buffer_callback(MMAL_PORT_T* port, MMAL_BUFFER_HEADER_T* buffe
 		printf("shoot!\n");
             // fire the solenoid on its pin
             if (pigun_solenoid_ready == 0) {
-                pigun_solenoid_ready = 1; // WARNING: number of frames that the solenoid will stay polarised after shooting
+                pigun_solenoid_ready = 2; // WARNING: number of frames that the solenoid will stay polarised after shooting
                 bcm2835_gpio_write(PIN_OUT_SOL, HIGH);
             }
         }
     }
 
-    if (pigun_solenoid_ready > 0) pigun_solenoid_ready--;
+    // the check is done in this order so that the solenoid remains polarised for exactly 2 frames = 0.05s
+    if(pigun_solenoid_ready == 0) bcm2835_gpio_write(PIN_OUT_SOL, LOW);
+    else if (pigun_solenoid_ready > 0) pigun_solenoid_ready--;
     
     // *********************************************************************
     // *********************************************************************
