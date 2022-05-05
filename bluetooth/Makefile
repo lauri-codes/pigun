@@ -249,30 +249,17 @@ pigun-dummy:
 
 
 # these targets compile the peak detectors and the aim calculators separately
-pigun-detector-lauri:
+pigun-aimer:
 	rm -f pigun_kernel.o
-	g++ -c -std=c++11 -O3 -w ${PIGUNFLAGS} ${MMAL_INC} -o pigun_detector.o pigun-detector-lauri.cpp 
-
-pigun-aimer-lauri:
-	rm -f pigun_kernel.o
-	g++ -c -std=c++11 -O3 -w ${PIGUNFLAGS} ${MMAL_INC} -o pigun_aimer.o pigun-aimer-lauri.cpp 
-
-pigun-detector-flp:
-	rm -f pigun_kernel.o
-	${CC} -c ${CFLAGS} ${PIGUNFLAGS} ${MMAL_INC} -o pigun_detector.o pigun-detector-flp.c 
-
-
-pigun-detector-4led:
-	rm -f pigun_kernel.o
-	g++ -c -std=c++11 -O3 -DPIGUN_FOUR_LEDS -w ${PIGUNFLAGS} ${MMAL_INC} -o pigun_detector.o pigun-detector-lauri.cpp 
+	${CC} -c ${CFLAGS} ${PIGUNFLAGS} ${MMAL_INC} -o pigun_aimer.o pigun-aimer-4led.c 
 
 pigun-detector-2led:
 	rm -f pigun_kernel.o
-	g++ -c -std=c++11 -O3 -w ${PIGUNFLAGS} ${MMAL_INC} -o pigun_detector.o pigun-detector-lauri.cpp 
+	${CC} -c ${CFLAGS} ${PIGUNFLAGS} ${MMAL_INC} -o pigun_detector.o pigun-detector-flp.c 
 
-pigun-aimer-4led:
+pigun-detector-4led:
 	rm -f pigun_kernel.o
-	${CC} -c ${CFLAGS} ${PIGUNFLAGS} ${MMAL_INC} -o pigun_aimer.o pigun-aimer-4led.c 
+	${CC} -c ${CFLAGS} -DPIGUN_FOUR_LEDS ${PIGUNFLAGS} ${MMAL_INC} -o pigun_detector.o pigun-detector-flp.c 
 
 
 # links all object files into pigun.exe
