@@ -132,7 +132,7 @@ int clamp(int d, int min, int max) {
 /**
  * Draws a rectangle on the preview window at the given location.
  */
-void rect(MMAL_BUFFER_HEADER_T* output, int x, int y, int size=2, int intensity=255) {
+void rect(MMAL_BUFFER_HEADER_T* output, int x, int y, int size, int intensity) {
     for (int i = x-size; i < x + size; ++i) {
         for (int i = y-size; i < y + size; ++i) {
             int xClamped = clamp(i, 0, PIGUN_RES_X);
@@ -359,10 +359,10 @@ void pigun_preview(MMAL_BUFFER_HEADER_T* output, MMAL_BUFFER_HEADER_T* source) {
     output->data[PIGUN_RES_X * (int)(PIGUN_RES_Y / 2.0) + (int)(PIGUN_RES_X / 2.0)] = 255;
 
     // Show rectangles at the peak locations
-    rect(output, pigun_peaks[0].row, pigun_peaks[0].col);
-    rect(output, pigun_peaks[1].row, pigun_peaks[1].col);
-    rect(output, pigun_peaks[2].row, pigun_peaks[2].col);
-    rect(output, pigun_peaks[3].row, pigun_peaks[3].col);
+    rect(output, pigun_peaks[0].row, pigun_peaks[0].col, 2, 255);
+    rect(output, pigun_peaks[1].row, pigun_peaks[1].col, 2, 255);
+    rect(output, pigun_peaks[2].row, pigun_peaks[2].col, 2, 255);
+    rect(output, pigun_peaks[3].row, pigun_peaks[3].col, 2, 255);
 
     // Set U/V channels to single color
     memset(&output->data[PIGUN_NPX], 128, PIGUN_NPX / 2);
