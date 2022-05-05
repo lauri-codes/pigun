@@ -264,6 +264,10 @@ pigun-detector-flp:
 
 pigun-detector-4led:
 	rm -f pigun_kernel.o
+	g++ -c -std=c++11 -O3 -DPIGUN_FOUR_LEDS -w ${PIGUNFLAGS} ${MMAL_INC} -o pigun_detector.o pigun-detector-lauri.cpp 
+
+pigun-detector-2led:
+	rm -f pigun_kernel.o
 	g++ -c -std=c++11 -O3 -w ${PIGUNFLAGS} ${MMAL_INC} -o pigun_detector.o pigun-detector-lauri.cpp 
 
 pigun-aimer-4led:
