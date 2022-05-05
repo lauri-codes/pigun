@@ -125,8 +125,21 @@ int peak_compare(const void* a, const void* b) {
  * Clamps the given value between a minimum and maximum.
  */
 int clamp(int d, int min, int max) {
-  const int t = d < min ? min : d;
-  return t > max ? max : t;
+    const int t = d < min ? min : d;
+    return t > max ? max : t;
+}
+
+/**
+ * Draws a rectangle on the preview window at the given location.
+ */
+int rect(output, int x, int y, size=2, int intensity=255) {
+    for (int i = x-size; i < x + size; ++i) {
+        for (int i = y-size; i < y + size; ++i) {
+            int xClamped = clamp(i, 0, PIGUN_RES_X);
+            int yClamped = clamp(j, 0, PIGUN_RES_Y);
+            output->data[PIGUN_RES_X * xClamped + yClamped] = 255;
+        }
+    }
 }
 
 /**
@@ -345,11 +358,11 @@ void pigun_preview(MMAL_BUFFER_HEADER_T* output, MMAL_BUFFER_HEADER_T* source) {
     // Show crosshair
     output->data[PIGUN_RES_X * (int)(PIGUN_RES_Y / 2.0) + (int)(PIGUN_RES_X / 2.0)] = 255;
 
-    // Show the peaks
-//    output->data[PIGUN_RES_X * (int)(pigun_peaks[0].row) + (int)(pigun_peaks[0].col)] = 255;
-    output->data[PIGUN_RES_X * (int)(pigun_peaks[1].row) + (int)(pigun_peaks[1].col)] = 255;
-//    output->data[PIGUN_RES_X * (int)(pigun_peaks[2].row) + (int)(pigun_peaks[2].col)] = 255;
-//    output->data[PIGUN_RES_X * (int)(pigun_peaks[3].row) + (int)(pigun_peaks[3].col)] = 255;
+    // Show rectangles at the peak locations
+    rect(output, pigun_peaks[0].row, pigun_peaks[0].col);
+    rect(output, pigun_peaks[1].row, pigun_peaks[1].col);
+    rect(output, pigun_peaks[2].row, pigun_peaks[2].col);
+    rect(output, pigun_peaks[3].row, pigun_peaks[3].col);
 
     // Set U/V channels to single color
     memset(&output->data[PIGUN_NPX], 128, PIGUN_NPX / 2);
