@@ -150,14 +150,12 @@ void emulateFourPeaks() {
 
     float ax = pigun_peaks[3].col - pigun_peaks[2].col;
     float ay = pigun_peaks[3].row - pigun_peaks[2].row;
-    PIGUN_RES_X
-    PIGUN_RES_X
 
     pigun_peaks[0].col = clamp(pigun_peaks[2].col + ay, 0, PIGUN_RES_X);// if (pigun_peaks[0].col < 0) pigun_peaks[0].col = 0;
     pigun_peaks[0].row = clamp(pigun_peaks[2].row - ax, 0, PIGUN_RES_Y);// if (pigun_peaks[0].row < 0) pigun_peaks[0].row = 0;
 
-    pigun_peaks[1].col = clamp(pigun_peaks[3].col + ay, PIGUN_RES_X);// if (pigun_peaks[1].col < 0) pigun_peaks[1].col = 0;
-    pigun_peaks[1].row = clamp(pigun_peaks[3].row - ax, PIGUN_RES_Y);// if (pigun_peaks[1].row < 0) pigun_peaks[1].row = 0;
+    pigun_peaks[1].col = clamp(pigun_peaks[3].col + ay, 0, PIGUN_RES_X);// if (pigun_peaks[1].col < 0) pigun_peaks[1].col = 0;
+    pigun_peaks[1].row = clamp(pigun_peaks[3].row - ax, 0, PIGUN_RES_Y);// if (pigun_peaks[1].row < 0) pigun_peaks[1].row = 0;
 }
 
 
