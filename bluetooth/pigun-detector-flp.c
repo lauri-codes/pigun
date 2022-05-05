@@ -133,8 +133,8 @@ int clamp(int d, int min, int max) {
  * Draws a rectangle on the preview window at the given location.
  */
 void rect(MMAL_BUFFER_HEADER_T* output, int x, int y, int size, int intensity) {
-    for (int i = x-size; i < x + size; ++i) {
-        for (int i = y-size; i < y + size; ++i) {
+    for (int i = x-size; i <= x + size; ++i) {
+        for (int j = y-size; j <= y + size; ++j) {
             int xClamped = clamp(i, 0, PIGUN_RES_X);
             int yClamped = clamp(j, 0, PIGUN_RES_Y);
             output->data[PIGUN_RES_X * xClamped + yClamped] = 255;
