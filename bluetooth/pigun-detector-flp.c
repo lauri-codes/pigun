@@ -122,6 +122,27 @@ int peak_compare(const void* a, const void* b) {
 }
 
 /**
+ * Clamps the given value between a minimum and maximum.
+ */
+int clamp(int d, int min, int max) {
+    const int t = d < min ? min : d;
+    return t > max ? max : t;
+}
+
+/**
+ * Draws a rectangle on the preview window at the given location.
+ */
+void rect(MMAL_BUFFER_HEADER_T* output, int x, int y, int size, int intensity) {
+    for (int i = x-size; i <= x + size; ++i) {
+        for (int j = y-size; j <= y + size; ++j) {
+            int xClamped = clamp(i, 0, PIGUN_RES_X);
+            int yClamped = clamp(j, 0, PIGUN_RES_Y);
+            output->data[PIGUN_RES_X * xClamped + yClamped] = 255;
+        }
+    }
+}
+
+/**
  * Whenever only two peaks are present, sorts them correctly and artificially
  * adds the missing ones using an approximation.
  *
@@ -143,11 +164,11 @@ void emulateFourPeaks() {
     float ax = pigun_peaks[3].col - pigun_peaks[2].col;
     float ay = pigun_peaks[3].row - pigun_peaks[2].row;
 
-    pigun_peaks[0].col = pigun_peaks[2].col + ay;// if (pigun_peaks[0].col < 0) pigun_peaks[0].col = 0;
-    pigun_peaks[0].row = pigun_peaks[2].row - ax;// if (pigun_peaks[0].row < 0) pigun_peaks[0].row = 0;
+    pigun_peaks[0].col = clamp(pigun_peaks[2].col + ay, 0, PIGUN_RES_X);// if (pigun_peaks[0].col < 0) pigun_peaks[0].col = 0;
+    pigun_peaks[0].row = clamp(pigun_peaks[2].row - ax, 0, PIGUN_RES_Y);// if (pigun_peaks[0].row < 0) pigun_peaks[0].row = 0;
 
-    pigun_peaks[1].col = pigun_peaks[3].col + ay;// if (pigun_peaks[1].col < 0) pigun_peaks[1].col = 0;
-    pigun_peaks[1].row = pigun_peaks[3].row - ax;// if (pigun_peaks[1].row < 0) pigun_peaks[1].row = 0;
+    pigun_peaks[1].col = clamp(pigun_peaks[3].col + ay, 0, PIGUN_RES_X);// if (pigun_peaks[1].col < 0) pigun_peaks[1].col = 0;
+    pigun_peaks[1].row = clamp(pigun_peaks[3].row - ax, 0, PIGUN_RES_Y);// if (pigun_peaks[1].row < 0) pigun_peaks[1].row = 0;
 }
 
 
@@ -337,11 +358,11 @@ void pigun_preview(MMAL_BUFFER_HEADER_T* output, MMAL_BUFFER_HEADER_T* source) {
     // Show crosshair
     output->data[PIGUN_RES_X * (int)(PIGUN_RES_Y / 2.0) + (int)(PIGUN_RES_X / 2.0)] = 255;
 
-    // Show the peaks
-//    output->data[PIGUN_RES_X * (int)(pigun_peaks[0].row) + (int)(pigun_peaks[0].col)] = 255;
-    output->data[PIGUN_RES_X * (int)(pigun_peaks[1].row) + (int)(pigun_peaks[1].col)] = 255;
-//    output->data[PIGUN_RES_X * (int)(pigun_peaks[2].row) + (int)(pigun_peaks[2].col)] = 255;
-//    output->data[PIGUN_RES_X * (int)(pigun_peaks[3].row) + (int)(pigun_peaks[3].col)] = 255;
+    // Show rectangles at the peak locations
+    rect(output, pigun_peaks[0].row, pigun_peaks[0].col, 2, 255);
+    rect(output, pigun_peaks[1].row, pigun_peaks[1].col, 2, 255);
+    rect(output, pigun_peaks[2].row, pigun_peaks[2].col, 2, 255);
+    rect(output, pigun_peaks[3].row, pigun_peaks[3].col, 2, 255);
 
     // Set U/V channels to single color
     memset(&output->data[PIGUN_NPX], 128, PIGUN_NPX / 2);

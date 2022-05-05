@@ -146,7 +146,7 @@ MMAL_LNK = -lX11 -lwiringPi -lbcm_host -lvcos -lvchiq_arm -lpthread -lrt -lmmal 
 # PIGUN_PREVIEW enables the preview window
 # PIGUN_MOUSE enables moving the mouse on the pi
 # PIGUN_FOUR_LEDS enables the four led detection mode
-PIGUNFLAGS = -DPIGUN_PREVIEW -DPIGUN_FOUR_LEDS #-DPIGUN_MOUSE #-DPIGUN_FOUR_LEDS
+PIGUNFLAGS = -DPIGUN_PREVIEW #-DPIGUN_FOUR_LEDS #-DPIGUN_MOUSE
 
 
 # extra libs no longer used cos they slo AF: -lopencv_shape -lopencv_stitching -lopencv_superres -lopencv_videostab -lopencv_aruco -lopencv_bgsegm -lopencv_bioinspired -lopencv_ccalib -lopencv_datasets -lopencv_dpm -lopencv_face -lopencv_freetype -lopencv_fuzzy -lopencv_hdf -lopencv_line_descriptor -lopencv_optflow -lopencv_video -lopencv_plot -lopencv_reg -lopencv_saliency -lopencv_stereo -lopencv_structured_light -lopencv_phase_unwrapping -lopencv_rgbd -lopencv_viz -lopencv_surface_matching -lopencv_text -lopencv_ximgproc -lopencv_calib3d -lopencv_features2d -lopencv_flann -lopencv_xobjdetect -lopencv_objdetect -lopencv_ml -lopencv_xphoto -lopencv_highgui -lopencv_videoio -lopencv_imgcodecs -lopencv_photo -lopencv_imgproc -lopencv_core
@@ -249,26 +249,17 @@ pigun-dummy:
 
 
 # these targets compile the peak detectors and the aim calculators separately
-pigun-detector-lauri:
+pigun-aimer:
 	rm -f pigun_kernel.o
-	g++ -c -std=c++11 -O3 -w ${PIGUNFLAGS} ${MMAL_INC} -o pigun_detector.o pigun-detector-lauri.cpp 
+	${CC} -c ${CFLAGS} ${PIGUNFLAGS} ${MMAL_INC} -o pigun_aimer.o pigun-aimer-4led.c 
 
-pigun-aimer-lauri:
-	rm -f pigun_kernel.o
-	g++ -c -std=c++11 -O3 -w ${PIGUNFLAGS} ${MMAL_INC} -o pigun_aimer.o pigun-aimer-lauri.cpp 
-
-pigun-detector-flp:
+pigun-detector-2led:
 	rm -f pigun_kernel.o
 	${CC} -c ${CFLAGS} ${PIGUNFLAGS} ${MMAL_INC} -o pigun_detector.o pigun-detector-flp.c 
 
-
 pigun-detector-4led:
 	rm -f pigun_kernel.o
-	g++ -c -std=c++11 -O3 -w ${PIGUNFLAGS} ${MMAL_INC} -o pigun_detector.o pigun-detector-lauri.cpp 
-
-pigun-aimer-4led:
-	rm -f pigun_kernel.o
-	${CC} -c ${CFLAGS} ${PIGUNFLAGS} ${MMAL_INC} -o pigun_aimer.o pigun-aimer-4led.c 
+	${CC} -c ${CFLAGS} -DPIGUN_FOUR_LEDS ${PIGUNFLAGS} ${MMAL_INC} -o pigun_detector.o pigun-detector-flp.c 
 
 
 # links all object files into pigun.exe
