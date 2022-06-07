@@ -404,8 +404,14 @@ void pigun_preview(MMAL_BUFFER_HEADER_T* output, MMAL_BUFFER_HEADER_T* source) {
     rect(output, pigun_peaks[3].row, pigun_peaks[3].col, 2, 255);
 
     // Show the calibrated monitor corners
-    PigunAimPoint topleft = screen_to_camera(pigun_cal_topleft.x, pigun_cal_topleft.x);
+    PigunAimPoint topleft = screen_to_camera(pigun_cal_topleft.x, pigun_cal_topleft.y);
+    PigunAimPoint topright = screen_to_camera(pigun_cal_lowright.x, pigun_cal_topleft.y);
+    PigunAimPoint lowright = screen_to_camera(pigun_cal_topleft.x, pigun_cal_lowright.y);
+    PigunAimPoint lowleft = screen_to_camera(pigun_cal_topleft.x, pigun_cal_lowright.y);
     rect(output, topleft.y, topleft.x, 2, 255);
+    rect(output, topright.y, topright.x, 2, 255);
+    rect(output, lowright.y, lowright.x, 2, 255);
+    rect(output, lowleft.y, lowleft.x, 2, 255);
 
     // Set U/V channels to single color
     memset(&output->data[PIGUN_NPX], 128, PIGUN_NPX / 2);
