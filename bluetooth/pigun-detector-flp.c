@@ -364,8 +364,8 @@ PigunAimPoint screen_to_camera(double x, double y) {
     // The final point needs to be normalized using it's third component
     x_prime = x_prime / z_prime;
     y_prime = y_prime / z_prime;
-
-    return PigunAimPoint(x_prime, y_prime);
+    PigunAimPoint a = {x_prime, y_prime};
+    return a;
 }
 
 
