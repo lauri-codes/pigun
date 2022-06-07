@@ -408,10 +408,10 @@ void pigun_preview(MMAL_BUFFER_HEADER_T* output, MMAL_BUFFER_HEADER_T* source) {
     PigunAimPoint topright = screen_to_camera(pigun_cal_lowright.x, pigun_cal_topleft.y);
     PigunAimPoint lowright = screen_to_camera(pigun_cal_lowright.x, pigun_cal_lowright.y);
     PigunAimPoint lowleft = screen_to_camera(pigun_cal_topleft.x, pigun_cal_lowright.y);
-    rect(output, topleft.x, topleft.y, 2, 255);
-    rect(output, topright.x, topright.y, 2, 255);
-    rect(output, lowright.x, lowright.y, 2, 255);
-    rect(output, lowleft.x, lowleft.y, 2, 255);
+    rect(output, topleft.y, topleft.x, 2, 255);
+    rect(output, topright.y, topright.x, 2, 255);
+    rect(output, lowright.y, lowright.x, 2, 255);
+    rect(output, lowleft.y, lowleft.x, 2, 255);
 
     // Set U/V channels to single color
     memset(&output->data[PIGUN_NPX], 128, PIGUN_NPX / 2);
