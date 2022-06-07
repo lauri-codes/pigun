@@ -604,8 +604,10 @@ void* pigun_cycle(void* nullargs) {
     pigun_solenoid_ready = 0;
     
     // reset calibration
-    pigun_cal_topleft.x = pigun_cal_topleft.y = 0;
-    pigun_cal_lowright.x = pigun_cal_lowright.y = 1;
+    pigun_cal_topleft.x = -0.1;
+    pigun_cal_topleft.y = -0.1;
+    pigun_cal_lowright.x = 1.1;
+    pigun_cal_lowright.y = 1.1;
 
     // setup the pins for LED output (error, calibration, ...)
     bcm2835_gpio_fsel(PIN_OUT_ERR, BCM2835_GPIO_FSEL_OUTP); bcm2835_gpio_write(PIN_OUT_ERR, LOW);

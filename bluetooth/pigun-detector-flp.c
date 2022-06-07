@@ -330,6 +330,45 @@ int pigun_detect(unsigned char* data) {
 }
 
 
+PigunAimPoint screen_to_camera(double x, double y) {
+    // The corners in camera space.
+    double x1 = pigun_peaks[0].col;
+    double y1 = pigun_peaks[0].row;
+    double x2 = pigun_peaks[2].col;
+    double y2 = pigun_peaks[2].row;
+    double x3 = pigun_peaks[1].col;
+    double y3 = pigun_peaks[1].row;
+    double x4 = pigun_peaks[3].col;
+    double y4 = pigun_peaks[3].row;
+
+    // Denominator
+    double d = x3*(y1 - y2) + x1*(y2 - y3) + x2*(-y1 + y3);
+
+    // The inverse matrix coefficients without the denominator, see tester.nb
+    // for details.
+    double c00 = x4*(x3*(y1 - y2) + x1*(y2 - y3)) + x2*(x1*(y3 - y4) + x3*(-y1 + y4));
+    double c01 = x2*(x4*(-y1 + y3) + x3*(y1 - y4)) + x1*(x4*(y2 - y3) + x3*(-y2 + y4));
+    double c02 = x1*(x4*(-y2 + y3) + x3*(y2 - y4) + x2*(-y3 + y4));
+    double c10 = x4*y2*(y1 - y3) + x1*y2*y3 - x2*y1*y4 - x1*y3*y4 + x2*y3*y4 + x3*y1*(-y2 + y4);
+    double c11 = -(x1*y2*y3) + x4*(-y1 + y2)*y3 + x2*y1*(y3 - y4) + x3*y1*y4 + x1*y2*y4 - x3*y2*y4;
+    double c12 = y1*(x4*(-y2 + y3) + x3*(y2 - y4) + x2*(-y3 + y4));
+    double c20 = -((x2 - x4)*(y1 - y3)) + (x1 - x3)*(y2 - y4);
+    double c21 = (x3 - x4)*(y1 - y2) - (x1 - x2)*(y3 - y4);
+    double c22 = x4*(-y2 + y3) + x3*(y2 - y4) + x2*(-y3 + y4);
+
+    // Dot product
+    double x_prime = (c00 * x + c01 * y + c02*1) / d;
+    double y_prime = (c10 * x + c11 * y + c12*1) / d;
+    double z_prime = (c20 * x + c21 * y + c22*1) / d;
+    
+    // The final point needs to be normalized using it's third component
+    x_prime = x_prime / z_prime;
+    y_prime = y_prime / z_prime;
+    PigunAimPoint a = {x_prime, y_prime};
+    return a;
+}
+
+
 /**
     * Setup the buffer to show in the preview window. source is the original
     * frame buffer from the camera output is the buffer to send to
@@ -363,6 +402,16 @@ void pigun_preview(MMAL_BUFFER_HEADER_T* output, MMAL_BUFFER_HEADER_T* source) {
     rect(output, pigun_peaks[1].row, pigun_peaks[1].col, 2, 255);
     rect(output, pigun_peaks[2].row, pigun_peaks[2].col, 2, 255);
     rect(output, pigun_peaks[3].row, pigun_peaks[3].col, 2, 255);
+
+    // Show the calibrated monitor corners (TODO: these are not working yet)
+    PigunAimPoint topleft = screen_to_camera(pigun_cal_topleft.x, pigun_cal_topleft.y);
+    PigunAimPoint topright = screen_to_camera(pigun_cal_lowright.x, pigun_cal_topleft.y);
+    PigunAimPoint lowright = screen_to_camera(pigun_cal_lowright.x, pigun_cal_lowright.y);
+    PigunAimPoint lowleft = screen_to_camera(pigun_cal_topleft.x, pigun_cal_lowright.y);
+    rect(output, topleft.y, topleft.x, 2, 255);
+    rect(output, topright.y, topright.x, 2, 255);
+    rect(output, lowright.y, lowright.x, 2, 255);
+    rect(output, lowleft.y, lowleft.x, 2, 255);
 
     // Set U/V channels to single color
     memset(&output->data[PIGUN_NPX], 128, PIGUN_NPX / 2);
