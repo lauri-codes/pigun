@@ -338,8 +338,8 @@ PigunAimPoint screen_to_camera(double x, double y) {
     double y2 = pigun_peaks[2].row;
     double x3 = pigun_peaks[1].col;
     double y3 = pigun_peaks[1].row;
-    double x4 = pigun_peaks[3].row;
-    double y4 = pigun_peaks[3].col;
+    double x4 = pigun_peaks[3].col;
+    double y4 = pigun_peaks[3].row;
 
     // Denominator
     double d = x3*(y1 - y2) + x1*(y2 - y3) + x2*(-y1 + y3);
@@ -403,7 +403,7 @@ void pigun_preview(MMAL_BUFFER_HEADER_T* output, MMAL_BUFFER_HEADER_T* source) {
     rect(output, pigun_peaks[2].row, pigun_peaks[2].col, 2, 255);
     rect(output, pigun_peaks[3].row, pigun_peaks[3].col, 2, 255);
 
-    // Show the calibrated monitor corners
+    // Show the calibrated monitor corners (TODO: these are not working yet)
     PigunAimPoint topleft = screen_to_camera(pigun_cal_topleft.x, pigun_cal_topleft.y);
     PigunAimPoint topright = screen_to_camera(pigun_cal_lowright.x, pigun_cal_topleft.y);
     PigunAimPoint lowright = screen_to_camera(pigun_cal_lowright.x, pigun_cal_lowright.y);
