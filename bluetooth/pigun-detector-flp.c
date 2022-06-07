@@ -401,7 +401,7 @@ void pigun_preview(MMAL_BUFFER_HEADER_T* output, MMAL_BUFFER_HEADER_T* source) {
     rect(output, pigun_peaks[0].row, pigun_peaks[0].col, 2, 255);
     rect(output, pigun_peaks[1].row, pigun_peaks[1].col, 2, 255);
     rect(output, pigun_peaks[2].row, pigun_peaks[2].col, 2, 255);
-    rect(output, pigun_peaks[3].row, pigush_peaks[3].col, 2, 255);
+    rect(output, pigun_peaks[3].row, pigun_peaks[3].col, 2, 255);
 
     // Show the calibrated monitor corners
     PigunAimPoint topleft = screen_to_camera(pigun_cal_topleft.x, pigun_cal_topleft.x);
