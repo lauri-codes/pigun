@@ -18,7 +18,10 @@ extern pigun_report_t global_pigun_report;
 #ifdef __cplusplus
 extern "C" {
 #endif
+	
 	void* pigun_cycle(void*);
+	int pigun_cycle_end(void);
+
 #ifdef __cplusplus
 }
 #endif

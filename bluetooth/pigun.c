@@ -38,6 +38,7 @@
 #include "pigun_bt.h"
 #include <math.h>
 #include <stdint.h>
+#include <signal.h>
 
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
@@ -46,7 +47,7 @@
 pigun_report_t global_pigun_report;
 
 // List of gpio code that will be used as the 8 buttons
-int pigun_button_pin[8] = { PIN_TRG,PIN_RLD,PIN_AX3,PIN_AX4 ,PIN_AX5 , PIN_AX6 , PIN_AX7 ,PIN_CAL };
+int pigun_button_pin[8] = { PIN_TRG,PIN_RLD,PIN_MAG,PIN_AX1,PIN_AX2, PIN_AX6, PIN_AX7, PIN_CAL };
 
 
 // counters for each button
@@ -100,11 +101,12 @@ MMAL_POOL_T* preview_input_port_pool = NULL;
 MMAL_PORT_T* preview_input_port = NULL;
 #endif
 
+pthread_mutex_t pigun_mutex;
 
 static inline void button_pressed(int buttonID){
 
     // it will have to be another 5 frames before the button can be pressed again
-    pigun_button_holder[buttonID] = 5;
+    pigun_button_holder[buttonID] = 1;
 
     // set the button in the HID report
     global_pigun_report.buttons |= (uint8_t)(1 << buttonID);
@@ -242,6 +244,11 @@ static void video_buffer_callback(MMAL_PORT_T* port, MMAL_BUFFER_HEADER_T* buffe
 	printf("CAL pressed!\n");
         bcm2835_gpio_write(PIN_OUT_CAL, HIGH); // turn on the LED
         pigun_state = 1; // next trigger pull marks top-left calibration point
+
+        // save the frame
+        FILE* fbin = fopen("CALframe.bin", "wb");
+        fwrite(buffer->data, sizeof(unsigned char), PIGUN_NPX, fbin);
+        fclose(fbin);
     }
     else if (pigun_button_newpress & 1) { // if TRIGGER was just pressed
 
@@ -257,6 +264,12 @@ static void video_buffer_callback(MMAL_PORT_T* port, MMAL_BUFFER_HEADER_T* buffe
             pigun_cal_lowright = pigun_aim_norm;
             pigun_state = 0;
             bcm2835_gpio_write(PIN_OUT_CAL, LOW); // turn off the LED
+            
+            // save the calibration data
+            FILE* fbin = fopen("cdata.bin", "wb");
+            fwrite(&pigun_cal_topleft, sizeof(PigunAimPoint), 1, fbin);
+            fwrite(&pigun_cal_lowright, sizeof(PigunAimPoint), 1, fbin);
+            fclose(fbin);
         }
         else if (pigun_state == 0) {
 		printf("shoot!\n");
@@ -606,13 +619,24 @@ void* pigun_cycle(void* nullargs) {
     // reset calibration
     pigun_cal_topleft.x = pigun_cal_topleft.y = 0;
     pigun_cal_lowright.x = pigun_cal_lowright.y = 1;
+    
+    FILE* fbin = fopen("cdata.bin", "rb");
+    if (fbin == NULL) {
+        printf("no calibration data found\n");
+    }
+    else {
+        fread(&pigun_cal_topleft, sizeof(PigunAimPoint), 1, fbin);
+        fread(&pigun_cal_lowright, sizeof(PigunAimPoint), 1, fbin);
+        fclose(fbin);
+    }
+
 
     // setup the pins for LED output (error, calibration, ...)
-    bcm2835_gpio_fsel(PIN_OUT_ERR, BCM2835_GPIO_FSEL_OUTP); bcm2835_gpio_write(PIN_OUT_ERR, LOW);
-    bcm2835_gpio_fsel(PIN_OUT_CAL, BCM2835_GPIO_FSEL_OUTP); bcm2835_gpio_write(PIN_OUT_CAL, LOW);
+    bcm2835_gpio_fsel(PIN_OUT_ERR, BCM2835_GPIO_FSEL_OUTP); bcm2835_gpio_write(PIN_OUT_ERR, HIGH);
+    bcm2835_gpio_fsel(PIN_OUT_CAL, BCM2835_GPIO_FSEL_OUTP); bcm2835_gpio_write(PIN_OUT_CAL, HIGH);
+    bcm2835_gpio_fsel(PIN_OUT_AOK, BCM2835_GPIO_FSEL_OUTP); bcm2835_gpio_write(PIN_OUT_AOK, HIGH);
     bcm2835_gpio_fsel(PIN_OUT_SOL, BCM2835_GPIO_FSEL_OUTP); bcm2835_gpio_write(PIN_OUT_SOL, LOW);
-
-
+    
     // Initialize the camera system
     int error = pigun_mmal_init();
     if (error != 0) {
@@ -620,7 +644,9 @@ void* pigun_cycle(void* nullargs) {
         return NULL;
     }
     printf("PIGUN: MMAL started.\n");
-
+    bcm2835_gpio_write(PIN_OUT_ERR, LOW);
+    bcm2835_gpio_write(PIN_OUT_CAL, LOW);
+    bcm2835_gpio_write(PIN_OUT_AOK, HIGH);
 
     // allocate peaks
     pigun_peaks = (Peak*)calloc(10, sizeof(Peak));
@@ -633,29 +659,43 @@ void* pigun_cycle(void* nullargs) {
         bcm2835_gpio_fen(pigun_button_pin[i]);  // detect falling edge - button is pressed
     }
 
-
+    
     // repeat forever and ever!
     // there could be a graceful shutdown?
+    int cameraON;
     while (1) {
-
-        // in here we have to check the state of GPIOs
-        // initially pigun_buttons and pigun_button_release are both 0
-        // when a change is detected on a GPIO, both buttons and releases are set to 1
-        // the buttons flag is reset to 0 when the frame callback handles the event
-        // the release flag is reset to 0 when the button can be pressed again (to avoid jitter): maybe after some time or frames? need to test
-        // buttons flag will not be set to 1 if the relase is already 1
-
-        //bcm2835_gpio_eds(PIN) // test for event detection flag
-        //bcm2835_gpio_lev(PIN) // returns the level of the pin
-
+        
+        cameraON = 1;
+        switch (pthread_mutex_trylock(&pigun_mutex)) {
+        case 0: /* if we got the lock, unlock and return 1 (true) */
+            pthread_mutex_unlock(&pigun_mutex);
+            cameraON = 1;
+            break;
+        case EBUSY: /* return 0 (false) if the mutex was locked */
+            cameraON = 0;
+        }
+        
+        if (cameraON) break;
     }
+    pigun_cycle_end();
+    
 
 #ifdef PIGUN_MOUSE
     XCloseDisplay(displayMain);
 #endif
 
     free(pigun_peaks);
-    return NULL;
+    //return NULL;
+    pthread_exit((void*)0);
 }
 
 
+int pigun_cycle_end(void) {
+
+    bcm2835_gpio_write(PIN_OUT_ERR, LOW);
+    bcm2835_gpio_write(PIN_OUT_CAL, LOW);
+    bcm2835_gpio_write(PIN_OUT_AOK, LOW);
+    bcm2835_gpio_write(PIN_OUT_SOL, LOW);
+
+    return 0;
+}

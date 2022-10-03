@@ -113,7 +113,7 @@ static void send_report() {
 }
 
 
-static void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t * packet, uint16_t packet_size){
+static void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t packet_size){
     UNUSED(channel);
     UNUSED(packet_size);
     uint8_t status;

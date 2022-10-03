@@ -68,21 +68,26 @@ extern MMAL_PORT_T *port_prv_in1;
 
 
 // Button definitions - GPIO pins
-#define PIN_TRG RPI_V2_GPIO_P1_16	// trigger goes on PIN #16 == GPIO 23
-#define PIN_RLD RPI_V2_GPIO_P1_18	// reload  goes on PIN #18 == GPIO 24 (this is the little clip button like in real beretta M9)
-#define PIN_AX3 RPI_V2_GPIO_P1_29	// AUX1 BT goes on PIN #29 == GPIO 5  (this should be connected  under the handle)
-#define PIN_AX4 RPI_V2_GPIO_P1_32	// AUX2 BT goes on PIN #32 == GPIO 12  
-#define PIN_AX5 RPI_V2_GPIO_P1_36	// AUX3 BT goes on PIN #36 == GPIO 16
+#define PIN_TRG RPI_V2_GPIO_P1_16	// trigger 
+#define PIN_RLD RPI_V2_GPIO_P1_29	// reload  (this is the little clip button like in real beretta M9)
+#define PIN_MAG RPI_V2_GPIO_P1_18	// handmag (this should be connected under the handle)
+#define PIN_AX1 RPI_V2_GPIO_P1_37	// AUX1 BT (this will be the one in the front of the magazine, under the barrel)
+#define PIN_AX2 RPI_V2_GPIO_P1_31	// AUX2 BT 
+#define PIN_CAL RPI_V2_GPIO_P1_33	// calibr  
+// not used:
 #define PIN_AX6 RPI_V2_GPIO_P1_38	// AUX4 BT goes on PIN #38 == GPIO 20
 #define PIN_AX7 RPI_V2_GPIO_P1_40	// AUX5 BT goes on PIN #40 == GPIO 21
-#define PIN_CAL RPI_V2_GPIO_P1_15	// calibr  goes on PIN #15 == GPIO 22
+
 
 // GPIO for LEDs
 #define PIN_OUT_ERR RPI_V2_GPIO_P1_11 // maybe use a red led?
 #define PIN_OUT_CAL RPI_V2_GPIO_P1_13 // not soldered right?
-#define PIN_OUT_SOL RPI_V2_GPIO_P1_22
+#define PIN_OUT_AOK RPI_V2_GPIO_P1_15 // green LED
+#define PIN_OUT_SOL RPI_V2_GPIO_P1_07
 
 
+
+extern pthread_mutex_t pigun_mutex;
 
 
 // Describes a peak in the camera image

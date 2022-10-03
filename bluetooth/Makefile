@@ -146,7 +146,7 @@ MMAL_LNK = -lX11 -lwiringPi -lbcm_host -lvcos -lvchiq_arm -lpthread -lrt -lmmal 
 # PIGUN_PREVIEW enables the preview window
 # PIGUN_MOUSE enables moving the mouse on the pi
 # PIGUN_FOUR_LEDS enables the four led detection mode
-PIGUNFLAGS = -DPIGUN_PREVIEW -DPIGUN_FOUR_LEDS #-DPIGUN_MOUSE #-DPIGUN_FOUR_LEDS
+PIGUNFLAGS = -DPIGUN_PREVIEW #-DPIGUN_MOUSE #-DPIGUN_FOUR_LEDS
 
 
 # extra libs no longer used cos they slo AF: -lopencv_shape -lopencv_stitching -lopencv_superres -lopencv_videostab -lopencv_aruco -lopencv_bgsegm -lopencv_bioinspired -lopencv_ccalib -lopencv_datasets -lopencv_dpm -lopencv_face -lopencv_freetype -lopencv_fuzzy -lopencv_hdf -lopencv_line_descriptor -lopencv_optflow -lopencv_video -lopencv_plot -lopencv_reg -lopencv_saliency -lopencv_stereo -lopencv_structured_light -lopencv_phase_unwrapping -lopencv_rgbd -lopencv_viz -lopencv_surface_matching -lopencv_text -lopencv_ximgproc -lopencv_calib3d -lopencv_features2d -lopencv_flann -lopencv_xobjdetect -lopencv_objdetect -lopencv_ml -lopencv_xphoto -lopencv_highgui -lopencv_videoio -lopencv_imgcodecs -lopencv_photo -lopencv_imgproc -lopencv_core
@@ -222,11 +222,12 @@ bluetooth-others:
 	${CC} -c ${CFLAGS} ${BTSTACK_ROOT}/src/btstack_ring_buffer.c
 	${CC} -c ${CFLAGS} ${BTSTACK_ROOT}/src/classic/hid_device.c
 	${CC} -c ${CFLAGS} ${BTSTACK_ROOT}/src/btstack_hid_parser.c
+
+bluetooth-pigun-hid:
 	${CC} -c ${CFLAGS} main_pigun_hid.c
-	
 
 # this one compiles the all the BTStack only parts
-bluetooth: bluetooth-core bluetooth-common bluetooth-classic bluetooth-sdpclient bluetooth-others
+bluetooth: bluetooth-core bluetooth-common bluetooth-classic bluetooth-sdpclient bluetooth-others bluetooth-pigun-hid
 
 #bluetooth: ${CORE_OBJ} ${COMMON_OBJ} ${CLASSIC_OBJ} ${SDP_CLIENT} btstack_ring_buffer.o hid_device.o btstack_hid_parser.o main_pigun_hid.o
 #	${CC} -c $^ ${CFLAGS}
@@ -263,6 +264,10 @@ pigun-detector-flp:
 
 
 pigun-detector-4led:
+	rm -f pigun_kernel.o
+	g++ -c -std=c++11 -O3 -DPIGUN_FOUR_LEDS -w ${PIGUNFLAGS} ${MMAL_INC} -o pigun_detector.o pigun-detector-lauri.cpp 
+
+pigun-detector-2led:
 	rm -f pigun_kernel.o
 	g++ -c -std=c++11 -O3 -w ${PIGUNFLAGS} ${MMAL_INC} -o pigun_detector.o pigun-detector-lauri.cpp 
 

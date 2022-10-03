@@ -58,7 +58,7 @@ void pigun_calculate_aim() {
 	d1 = 1.0 / (x4 * dy + dxy - x1 * y4 + x3 * y4);
 	aim_y = (dy * (PIGUN_RES_X / 2) + (x3 - x1) * (PIGUN_RES_Y / 2) + dxy) * d1;
 
-	// save the normalised aim position before messing with it
+	// save the normalised aim position before messing with it - meaning 0,0 and 1,1 are the TR,LL corner LEDs
 	pigun_aim_norm.x = aim_x;
 	pigun_aim_norm.y = aim_y;
 

@@ -89,6 +89,7 @@
 #include "raspi_get_model.h"
 
 int btstack_main(int argc, const char * argv[]);
+pthread_t gunthread;
 
 typedef enum  {
     UART_INVALID,
@@ -118,6 +119,8 @@ static btstack_packet_callback_registration_t hci_event_callback_registration;
 static char tlv_db_path[100];
 static const btstack_tlv_t * tlv_impl;
 static btstack_tlv_posix_t   tlv_context;
+
+//static le_device_addr_t remote_device;
 
 /// <summary>
 /// Get the baud rate... I really dont get why this is here
@@ -199,12 +202,26 @@ static void sigint_handler(int param){
     printf("CTRL-C - SIGINT received, shutting down..\n");
     log_info("sigint_handler: shutting down");
 
+    // shutdown the pigun camera loop
+    printf("telling pigun cycle to end...\n");
+    int gunret;
+    pthread_mutex_unlock(&pigun_mutex);
+    printf("pigun joining...\n");
+    pthread_join(gunthread, (void*)&gunret);
+    printf("pigun joined to main thread!\n");
+
     // reset anyway
     btstack_stdin_reset();
 
     // power down
     hci_power_control(HCI_POWER_OFF);
     hci_close();
+
+    // TODO: stop the camera thread gracefully
+    // shut down the LEDs
+
+
+
     log_info("Good bye, see you.\n");
     exit(0);
 }
@@ -215,7 +232,7 @@ void hal_led_toggle(void){
     printf("LED State %u\n", led_state);
 }
 
-static void packet_handler (uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t size){
+static void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t size){
 
     if (packet_type != HCI_EVENT_PACKET) return;
     bd_addr_t addr;
@@ -225,6 +242,7 @@ static void packet_handler (uint8_t packet_type, uint16_t channel, uint8_t *pack
             if (btstack_event_state_get_state(packet) != HCI_STATE_WORKING) break;
             gap_local_bd_addr(addr);
             printf("BTstack up and running at %s\n",  bd_addr_to_str(addr));
+            
             // setup TLV
             strcpy(tlv_db_path, TLV_DB_PATH_PREFIX);
             strcat(tlv_db_path, bd_addr_to_str(addr));
@@ -237,6 +255,8 @@ static void packet_handler (uint8_t packet_type, uint16_t channel, uint8_t *pack
 #ifdef ENABLE_BLE
             le_device_db_tlv_configure(tlv_impl, &tlv_context);
 #endif
+
+
             break;
         case HCI_EVENT_COMMAND_COMPLETE:
             if (HCI_EVENT_IS_COMMAND_COMPLETE(packet, hci_read_local_name)){
@@ -438,7 +458,8 @@ int main(int argc, const char * argv[]){
         // with flowcontrol, we use h4 and are done
         btstack_main(main_argc, main_argv);
 
-    } else {
+    }
+    else {
 
         // assume BCM4343W used in Pi 3 A/B. Pi 3 A/B+ have a newer controller but support H4 with Flowcontrol
         btstack_chipset_bcm_set_device_name("BCM43430A1");
@@ -455,9 +476,9 @@ int main(int argc, const char * argv[]){
     // setup the pigun
 
     // run its acquisition loop in a separate thread
-    pthread_t gunthread;
+    pthread_mutex_init(&pigun_mutex, NULL);
+    pthread_mutex_lock(&pigun_mutex);
     pthread_create(&gunthread, NULL, pigun_cycle, NULL);
-    //pthread_create(&gunthread, NULL, pigun_core, NULL); // DUMMZ LOOP
 
     // go
     printf("pigun main loop starting...\n");
