@@ -118,7 +118,7 @@ CLASSIC_OBJ  = $(CLASSIC:.c=.o)
 # use (cross)compiler for Raspi
 CC = arm-linux-gnueabihf-gcc
 
-CFLAGS  += -g -Wall -Werror -O3 \
+CFLAGS  += -g -Wall -Werror -O3 -Wno-restrict \
 	-Wno-maybe-uninitialized -Wno-cpp -Wno-comment -Wno-format \
 	-Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable \
 	-I$(BTSTACK_ROOT)/platform/embedded \
