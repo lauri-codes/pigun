@@ -15,6 +15,7 @@ struct pigun_report_t {
 
 extern pigun_report_t global_pigun_report;
 
+
 #ifdef __cplusplus
 extern "C" {
 #endif

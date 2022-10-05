@@ -89,7 +89,6 @@ extern MMAL_PORT_T *port_prv_in1;
 
 extern pthread_mutex_t pigun_mutex;
 
-
 // Describes a peak in the camera image
 typedef struct Peak Peak;
 struct Peak {

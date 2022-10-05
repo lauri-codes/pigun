@@ -42,6 +42,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <inttypes.h>
+#include <unistd.h>
+#include <pthread.h>
 
 #include "btstack.h"
 #include "pigun_bt.h" // this is mine!
@@ -95,6 +97,23 @@ static enum {
 } app_state = APP_BOOTING;
 
 
+int nServers = 0;
+bd_addr_t servers[3];
+
+void* pigun_autoconnect(void* nullargs);
+pthread_t pigun_autoconnect_thr;
+static btstack_timer_source_t heartbeat;
+static void heartbeat_handler(btstack_timer_source_t* ts);
+
+
+
+int compare_servers(bd_addr_t a, bd_addr_t b) {
+    for (int i = 0; i < 6; i++) {
+        if (a[i] != b[i]) return 0;
+    }
+    return 1;
+}
+
 // HID Report sending
 static void send_report() {
 
@@ -145,12 +164,49 @@ static void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packe
                 printf("Connection failed, status 0x%x\n", status);
                 app_state = APP_NOT_CONNECTED;
                 hid_cid = 0;
+
+                // re-register timer
+                btstack_run_loop_set_timer(&heartbeat, 1000);
+                btstack_run_loop_add_timer(&heartbeat);
                 return;
             }
             app_state = APP_CONNECTED;
             hid_cid = hid_subevent_connection_opened_get_hid_cid(packet);
+            bd_addr_t host_addr;
+            hid_subevent_connection_opened_get_bd_addr(packet, host_addr);
 
-            printf("HID connected, sending pigun data...\n");
+            // save the server address - if not already there
+            // rewrite the past servers list, putting the current one on top
+            // only write 3 of them
+            int isThere = 0;
+            for (int i = 0; i < nServers; i++) {
+                if (compare_servers(host_addr, servers[i])) {
+                    isThere = 1;
+                    break;
+                }
+            }
+            int ns = nServers;
+            if (!isThere) ns++;
+            if (ns > 3) ns = 3;
+            int written = 1;
+            bd_addr_t newlist[3];
+
+            FILE* fout = fopen("servers.bin", "wb");
+            fwrite(&ns, sizeof(int), 1, fout);
+            fwrite(host_addr, sizeof(bd_addr_t), 1, fout); memcpy(newlist[0], host_addr, sizeof(bd_addr_t));
+
+            for (int i = 0; i < nServers; i++) {
+                if (!compare_servers(host_addr, servers[i])) {
+                    fwrite(servers[i], sizeof(bd_addr_t), 1, fout); memcpy(newlist[written], servers[i], sizeof(bd_addr_t));
+                    written++;
+                    if (written == 3) break;
+                }
+            }
+            fclose(fout);
+            memcpy(servers[0], newlist[0], sizeof(bd_addr_t)*3);
+            nServers = ns;
+
+            printf("HID connected to %s, pigunning now...\n", bd_addr_to_str(host_addr));
             hid_device_request_can_send_now_event(hid_cid); // request a sendnow
             break;
         case HID_SUBEVENT_CONNECTION_CLOSED:
@@ -176,6 +232,8 @@ static void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packe
     }
 }
 
+
+
 /* @section Main Application Setup
  *
  * @text Listing MainConfiguration shows main application code. 
@@ -195,7 +253,7 @@ int btstack_main(int argc, const char * argv[]){
     // use Limited Discoverable Mode; Peripheral; Keyboard as CoD
     gap_set_class_of_device(0x2504);
     // set local name to be identified - zeroes will be replaced by actual BD ADDR
-    gap_set_local_name("HID PiGun test 00:00:00:00:00:00");
+    gap_set_local_name("PiGun 1d"); // ("PiGun 00:00:00:00:00:00");
     // allow for role switch in general and sniff mode
     gap_set_default_link_policy_settings( LM_LINK_POLICY_ENABLE_ROLE_SWITCH | LM_LINK_POLICY_ENABLE_SNIFF_MODE );
     // allow for role switch on outgoing connections - this allow HID Host to become master when we re-connect to it
@@ -248,7 +306,54 @@ int btstack_main(int argc, const char * argv[]){
     
     // turn on!
     hci_power_control(HCI_POWER_ON);
+
+    // read the previous server addresses
+    nServers = 0;
+    FILE* fin = fopen("servers.bin", "rb");
+    if (fin == NULL) {
+        fin = fopen("servers.bin", "wb");
+        fwrite(&nServers, sizeof(int), 1, fin);
+        fclose(fin);
+        fin = fopen("servers.bin", "rb");
+    }
+    fread(&nServers, sizeof(int), 1, fin);
+    
+    printf("HID previous hosts: %i\n", nServers);
+    for (int i = 0; i < nServers; i++) {
+        fread(servers[i], sizeof(bd_addr_t), 1, fin);
+        printf("previous host[%i]: %s\n", i, bd_addr_to_str(servers[i]));
+    }
+    fclose(fin);
+    
+
+    //pthread_create(&pigun_autoconnect_thr, NULL, pigun_autoconnect, NULL);
+
+    // set one-shot timer
+    heartbeat.process = &heartbeat_handler;
+    if (nServers != 0) {
+        btstack_run_loop_set_timer(&heartbeat, 5000);
+        btstack_run_loop_add_timer(&heartbeat);
+    }
+
     return 0;
 }
 /* LISTING_END */
 /* EXAMPLE_END */
+
+
+static void heartbeat_handler(btstack_timer_source_t* ts) {
+    UNUSED(ts);
+
+    // increment counter
+    static int snum = 0;
+
+    if (app_state == APP_NOT_CONNECTED && nServers != 0) {
+
+        // try connecting to a server
+        printf("trying to connect to %s...\n", bd_addr_to_str(servers[snum]));
+        hid_device_connect(servers[snum], &hid_cid);
+
+        snum++; if (snum == nServers)snum = 0;
+    }
+}
+

@@ -84,12 +84,14 @@
 #include "btstack_chipset_bcm.h"
 #include "btstack_chipset_bcm_download_firmware.h"
 #include "btstack_control_raspi.h"
+#include "hid_device.h"
 
 
 #include "raspi_get_model.h"
 
 int btstack_main(int argc, const char * argv[]);
 pthread_t gunthread;
+bd_addr_t pigun_addr;
 
 typedef enum  {
     UART_INVALID,
@@ -114,7 +116,7 @@ static const char ** main_argv;
 
 static btstack_packet_callback_registration_t hci_event_callback_registration;
 
-#define TLV_DB_PATH_PREFIX "/tmp/btstack_"
+#define TLV_DB_PATH_PREFIX "/home/pi/projects/pigun/bluetooth/bonding/btstack_"
 #define TLV_DB_PATH_POSTFIX ".tlv"
 static char tlv_db_path[100];
 static const btstack_tlv_t * tlv_impl;
@@ -203,12 +205,10 @@ static void sigint_handler(int param){
     log_info("sigint_handler: shutting down");
 
     // shutdown the pigun camera loop
-    printf("telling pigun cycle to end...\n");
+    printf("closing pigun thread...\n");
     int gunret;
     pthread_mutex_unlock(&pigun_mutex);
-    printf("pigun joining...\n");
     pthread_join(gunthread, (void*)&gunret);
-    printf("pigun joined to main thread!\n");
 
     // reset anyway
     btstack_stdin_reset();
@@ -216,11 +216,6 @@ static void sigint_handler(int param){
     // power down
     hci_power_control(HCI_POWER_OFF);
     hci_close();
-
-    // TODO: stop the camera thread gracefully
-    // shut down the LEDs
-
-
 
     log_info("Good bye, see you.\n");
     exit(0);
@@ -235,27 +230,27 @@ void hal_led_toggle(void){
 static void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t size){
 
     if (packet_type != HCI_EVENT_PACKET) return;
-    bd_addr_t addr;
+    //bd_addr_t addr;
 
     switch (hci_event_packet_get_type(packet)){
         case BTSTACK_EVENT_STATE:
             if (btstack_event_state_get_state(packet) != HCI_STATE_WORKING) break;
-            gap_local_bd_addr(addr);
-            printf("BTstack up and running at %s\n",  bd_addr_to_str(addr));
+            gap_local_bd_addr(pigun_addr);
+            printf("BTstack up and running at %s\n",  bd_addr_to_str(pigun_addr));
             
             // setup TLV
             strcpy(tlv_db_path, TLV_DB_PATH_PREFIX);
-            strcat(tlv_db_path, bd_addr_to_str(addr));
+            strcat(tlv_db_path, bd_addr_to_str(pigun_addr));
             strcat(tlv_db_path, TLV_DB_PATH_POSTFIX);
             tlv_impl = btstack_tlv_posix_init_instance(&tlv_context, tlv_db_path);
             btstack_tlv_set_instance(tlv_impl, &tlv_context);
+
 #ifdef ENABLE_CLASSIC
             hci_set_link_key_db(btstack_link_key_db_tlv_get_instance(tlv_impl, &tlv_context));
 #endif
 #ifdef ENABLE_BLE
             le_device_db_tlv_configure(tlv_impl, &tlv_context);
 #endif
-
 
             break;
         case HCI_EVENT_COMMAND_COMPLETE:
