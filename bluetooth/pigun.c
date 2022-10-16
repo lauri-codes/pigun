@@ -35,7 +35,9 @@
 #include "interface/mmal/util/mmal_connection.h"
 
 #include "pigun.h"
+#include "pigun_pins.h"
 #include "pigun_bt.h"
+
 #include <math.h>
 #include <stdint.h>
 #include <signal.h>
@@ -605,13 +607,14 @@ void* pigun_cycle(void* nullargs) {
     }
 #endif
 
+    /* THIS IS NOW DONE BY THE MAIN THREAD IN HID CODE
     // GPIO system
     if (!bcm2835_init()) {
         printf("PIGUN ERROR: failed to init BCM2835!\n");
         return NULL;
     }
     printf("PIGUN: BCM2835 started.\n");
-
+    */
     // normal state
     pigun_state = 0;
     pigun_solenoid_ready = 0;
@@ -634,7 +637,6 @@ void* pigun_cycle(void* nullargs) {
     // setup the pins for LED output (error, calibration, ...)
     bcm2835_gpio_fsel(PIN_OUT_ERR, BCM2835_GPIO_FSEL_OUTP); bcm2835_gpio_write(PIN_OUT_ERR, HIGH);
     bcm2835_gpio_fsel(PIN_OUT_CAL, BCM2835_GPIO_FSEL_OUTP); bcm2835_gpio_write(PIN_OUT_CAL, HIGH);
-    bcm2835_gpio_fsel(PIN_OUT_AOK, BCM2835_GPIO_FSEL_OUTP); bcm2835_gpio_write(PIN_OUT_AOK, HIGH);
     bcm2835_gpio_fsel(PIN_OUT_SOL, BCM2835_GPIO_FSEL_OUTP); bcm2835_gpio_write(PIN_OUT_SOL, LOW);
     
     // Initialize the camera system

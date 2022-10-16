@@ -43,9 +43,11 @@
 #include <string.h>
 #include <inttypes.h>
 #include <unistd.h>
-#include <pthread.h>
+
+#include <bcm2835.h>
 
 #include "btstack.h"
+#include "pigun_pins.h" // this is mine!
 #include "pigun_bt.h" // this is mine!
 
 
@@ -101,10 +103,12 @@ int nServers = 0;
 bd_addr_t servers[3];
 
 void* pigun_autoconnect(void* nullargs);
-pthread_t pigun_autoconnect_thr;
 static btstack_timer_source_t heartbeat;
 static void heartbeat_handler(btstack_timer_source_t* ts);
 
+static int connectorState = LOW;
+static btstack_timer_source_t connectorBLINK;
+static void connectorBLINK_handler(btstack_timer_source_t* ts);
 
 
 int compare_servers(bd_addr_t a, bd_addr_t b) {
@@ -175,6 +179,7 @@ static void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packe
             bd_addr_t host_addr;
             hid_subevent_connection_opened_get_bd_addr(packet, host_addr);
 
+            
             // save the server address - if not already there
             // rewrite the past servers list, putting the current one on top
             // only write 3 of them
@@ -205,6 +210,10 @@ static void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packe
             fclose(fout);
             memcpy(servers[0], newlist[0], sizeof(bd_addr_t)*3);
             nServers = ns;
+            
+
+            // turn on the green LED (AOK)
+            bcm2835_gpio_write(PIN_OUT_AOK, HIGH);
 
             printf("HID connected to %s, pigunning now...\n", bd_addr_to_str(host_addr));
             hid_device_request_can_send_now_event(hid_cid); // request a sendnow
@@ -213,6 +222,11 @@ static void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packe
             printf("HID Disconnected\n");
             app_state = APP_NOT_CONNECTED;
             hid_cid = 0;
+
+            // start blinking of the green LED again
+            btstack_run_loop_set_timer(&connectorBLINK, 800);
+            btstack_run_loop_add_timer(&connectorBLINK);
+
             break;
         case HID_SUBEVENT_CAN_SEND_NOW:
             // when the stack raises can_send_now event, we send a report... because we can!
@@ -307,6 +321,7 @@ int btstack_main(int argc, const char * argv[]){
     // turn on!
     hci_power_control(HCI_POWER_ON);
 
+    
     // read the previous server addresses
     nServers = 0;
     FILE* fin = fopen("servers.bin", "rb");
@@ -325,10 +340,19 @@ int btstack_main(int argc, const char * argv[]){
     }
     fclose(fin);
     
+    // set the green LED for connection
+    // GPIO system
+    if (!bcm2835_init()) {
+        printf("PIGUN-HID ERROR: failed to init BCM2835!\n");
+    }
+    bcm2835_gpio_fsel(PIN_OUT_AOK, BCM2835_GPIO_FSEL_OUTP); bcm2835_gpio_write(PIN_OUT_AOK, LOW);
+    
+    // start blinking of the green LED
+    connectorBLINK.process = &connectorBLINK_handler;
+    btstack_run_loop_set_timer(&connectorBLINK, 800);
+    btstack_run_loop_add_timer(&connectorBLINK);
 
-    //pthread_create(&pigun_autoconnect_thr, NULL, pigun_autoconnect, NULL);
-
-    // set one-shot timer
+    // set one-shot timer for autoreconnect
     heartbeat.process = &heartbeat_handler;
     if (nServers != 0) {
         btstack_run_loop_set_timer(&heartbeat, 5000);
@@ -337,10 +361,10 @@ int btstack_main(int argc, const char * argv[]){
 
     return 0;
 }
-/* LISTING_END */
-/* EXAMPLE_END */
 
 
+// This is called when the heartbeat times out.
+// attempt to connect to a known host if app is not connected already
 static void heartbeat_handler(btstack_timer_source_t* ts) {
     UNUSED(ts);
 
@@ -354,6 +378,22 @@ static void heartbeat_handler(btstack_timer_source_t* ts) {
         hid_device_connect(servers[snum], &hid_cid);
 
         snum++; if (snum == nServers)snum = 0;
+    }
+}
+
+static void connectorBLINK_handler(btstack_timer_source_t* ts) {
+    UNUSED(ts);
+
+    // change state and restart the blink timer if not connected
+    if (app_state != APP_CONNECTED) {
+
+        // switch state
+        connectorState = (connectorState == LOW) ? HIGH : LOW;
+
+        bcm2835_gpio_write(PIN_OUT_AOK, connectorState);
+
+        btstack_run_loop_set_timer(&connectorBLINK, 800);
+        btstack_run_loop_add_timer(&connectorBLINK);
     }
 }
 
