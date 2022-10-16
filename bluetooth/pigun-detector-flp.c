@@ -46,6 +46,10 @@ int blob_detect(int idx, unsigned char* data, const unsigned int blobID, const f
     pxbuffer[0] = idx;
     checked[idx] = 1;
 
+#ifdef PIGUN_DEBUG
+    printf("detecting peak...");
+#endif
+
     // Do search until stack is emptied or maximum size is reached
     while (qSize > 0 && blobSize < maxBlobSize) {
         
@@ -107,8 +111,9 @@ int blob_detect(int idx, unsigned char* data, const unsigned int blobID, const f
     pigun_peaks[blobID].maxI = (float)maxI;
     pigun_peaks[blobID].total = (pigun_peaks[blobID].row * PIGUN_RES_X + pigun_peaks[blobID].col);
     
-    //printf("%f %f\n", pigun_peaks[blobID].col, pigun_peaks[blobID].row);
-
+#ifdef PIGUN_DEBUG
+    printf("%f %f\n", pigun_peaks[blobID].col, pigun_peaks[blobID].row);
+#endif
     return 1;
 }
 
@@ -161,7 +166,10 @@ int pigun_detect(unsigned char* data) {
     fread(data, sizeof(unsigned char), PIGUN_NPX, fout);
     fclose(fout);*/
 
-    //printf("detecting...\n");
+#ifdef PIGUN_DEBUG
+    printf("detecting...\n");
+#endif
+
     // These parameters have to be tuned to optimize the search
     // How many blobs to search
 #ifdef PIGUN_FOUR_LEDS
@@ -211,6 +219,10 @@ int pigun_detect(unsigned char* data) {
         }
         if (blobID == nBlobs) break;
     }
+
+#ifdef PIGUN_DEBUG
+    //printf("detector done, nblobs=%i/%i\n", blobID, nBlobs);
+#endif
 
     // at this point we should have all the blobs we wanted
     // or maybe we are short

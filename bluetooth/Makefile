@@ -146,6 +146,7 @@ MMAL_LNK = -lX11 -lwiringPi -lbcm_host -lvcos -lvchiq_arm -lpthread -lrt -lmmal 
 # PIGUN_PREVIEW enables the preview window
 # PIGUN_MOUSE enables moving the mouse on the pi
 # PIGUN_FOUR_LEDS enables the four led detection mode
+# PIGUN_DEBUG enables some debug output
 PIGUNFLAGS = -DPIGUN_PREVIEW -DPIGUN_FOUR_LEDS #-DPIGUN_MOUSE
 
 

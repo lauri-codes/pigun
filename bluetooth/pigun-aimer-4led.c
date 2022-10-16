@@ -29,7 +29,7 @@
 * 
 */
 void pigun_calculate_aim() {
-
+	
 	float aim_x, aim_y;
 	float x1 = pigun_peaks[0].col;
 	float x2 = pigun_peaks[2].col;
@@ -40,11 +40,13 @@ void pigun_calculate_aim() {
 	float y3 = pigun_peaks[1].row;
 	float y4 = pigun_peaks[3].row;
 
-	/*printf("peaks: %f-%f/%f  %f-%f/%f  %f-%f/%f  %f-%f/%f \n",
+#ifdef PIGUN_DEBUG
+	printf("peaks: %f-%f/%f  %f-%f/%f  %f-%f/%f  %f-%f/%f \n",
 	x1,y1,pigun_peaks[0].total,
 	x2,y2,pigun_peaks[2].total,
 	x3,y3,pigun_peaks[1].total,
-	x4,y4,pigun_peaks[3].total);*/
+	x4,y4,pigun_peaks[3].total);
+#endif
 
 	// build the transformation matrix using the 4 points and apply it to the center of camera image
 	// check out the mathematica notebook for some more insight
@@ -72,8 +74,9 @@ void pigun_calculate_aim() {
 	aim_y = (aim_y < 0) ? 0 : aim_y;
 	aim_y = (aim_y > 1) ? 1 : aim_y;
 
-	//printf("aimer output: x=%f y=%f \n",aim_x, aim_y);
-
+#ifdef PIGUN_DEBUG
+	printf("aimer output: x=%f y=%f \n",aim_x, aim_y);
+#endif
 	// write in report
 	global_pigun_report.x = (short)((2 * aim_x - 1) * 32767);
 	global_pigun_report.y = (short)((2 * aim_y - 1) * 32767);
