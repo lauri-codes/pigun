@@ -77,7 +77,7 @@ PigunAimPoint pigun_cal_lowright;
 int pigun_state;
 
 int pigun_solenoid_ready;
-
+int button_delay = 1;
 
 #ifdef PIGUN_MOUSE
 Display* displayMain;
@@ -108,7 +108,7 @@ pthread_mutex_t pigun_mutex;
 static inline void button_pressed(int buttonID){
 
     // it will have to be another 5 frames before the button can be pressed again
-    pigun_button_holder[buttonID] = 1;
+    pigun_button_holder[buttonID] = button_delay;
 
     // set the button in the HID report
     global_pigun_report.buttons |= (uint8_t)(1 << buttonID);
@@ -246,6 +246,7 @@ static void video_buffer_callback(MMAL_PORT_T* port, MMAL_BUFFER_HEADER_T* buffe
 	printf("CAL pressed!\n");
         bcm2835_gpio_write(PIN_OUT_CAL, HIGH); // turn on the LED
         pigun_state = 1; // next trigger pull marks top-left calibration point
+        button_delay = 5;
 
         // save the frame
         FILE* fbin = fopen("CALframe.bin", "wb");
@@ -265,6 +266,7 @@ static void video_buffer_callback(MMAL_PORT_T* port, MMAL_BUFFER_HEADER_T* buffe
             // set the low-right calibration point
             pigun_cal_lowright = pigun_aim_norm;
             pigun_state = 0;
+            button_delay = 1;
             bcm2835_gpio_write(PIN_OUT_CAL, LOW); // turn off the LED
             
             // save the calibration data
